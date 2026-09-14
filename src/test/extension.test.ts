@@ -10,4 +10,9 @@ suite('Extension Test Suite', () => {
 		await extension?.activate();
 		assert.strictEqual(extension?.isActive, true);
 	});
+
+	test('registers the "Project Graph: Open Graph View" command', async () => {
+		const commands = await vscode.commands.getCommands(true);
+		assert.ok(commands.includes('agentGraph.openGraphView'));
+	});
 });

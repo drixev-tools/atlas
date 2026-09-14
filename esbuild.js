@@ -23,7 +23,7 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
-	const ctx = await esbuild.context({
+	const extensionCtx = await esbuild.context({
 		entryPoints: ['src/extension.ts'],
 		bundle: true,
 		format: 'cjs',
@@ -39,11 +39,27 @@ async function main() {
 		logLevel: 'silent',
 		plugins: [esbuildProblemMatcherPlugin]
 	});
+	// Runs inside the graph webview's own browser context (Epic 6), so it's
+	// bundled fully standalone, Cytoscape.js included, rather than treated
+	// like a Node dependency of the extension host.
+	const webviewCtx = await esbuild.context({
+		entryPoints: ['src/ui/webview/main.ts'],
+		bundle: true,
+		format: 'iife',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/ui/webview/main.js',
+		logLevel: 'silent',
+		plugins: [esbuildProblemMatcherPlugin]
+	});
+
 	if (watch) {
-		await ctx.watch();
+		await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
 	} else {
-		await ctx.rebuild();
-		await ctx.dispose();
+		await Promise.all([extensionCtx.rebuild(), webviewCtx.rebuild()]);
+		await Promise.all([extensionCtx.dispose(), webviewCtx.dispose()]);
 	}
 }
 
