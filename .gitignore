@@ -1,0 +1,23 @@
+out/
+dist/
+node_modules/
+.vscode-test/
+*.vsix
+*.log
+
+# Claude Code local config — never commit
+.claude/
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+credentials.json
+secrets.json
+secrets.yaml
+secrets.yml
