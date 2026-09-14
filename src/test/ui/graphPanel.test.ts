@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { OPEN_GRAPH_VIEW_COMMAND } from '../../extension';
+import { OPEN_ARCHITECTURE_COMMAND } from '../../extension';
 import { ProjectGraphStore } from '../../core/store';
 import { GraphPanel } from '../../ui/graphPanel';
 
@@ -8,6 +8,22 @@ function extensionUri(): vscode.Uri {
 	const extension = vscode.extensions.getExtension('agent-graph.agent-graph');
 	assert.ok(extension, 'agent-graph extension must be present');
 	return extension.extensionUri;
+}
+
+/**
+ * `vscode.window.tabGroups` mirrors the renderer's tab layout over an async
+ * IPC round-trip, so it can briefly lag behind a webview panel that was just
+ * created in this same tick. Polls instead of reading it once immediately.
+ */
+async function findTabByLabel(label: string, timeoutMs = 2000): Promise<vscode.Tab | undefined> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const tab = vscode.window.tabGroups.all.flatMap((group) => group.tabs).find((t) => t.label === label);
+		if (tab || Date.now() >= deadline) {
+			return tab;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
 }
 
 suite('GraphPanel', () => {
@@ -32,10 +48,10 @@ suite('GraphPanel', () => {
 		}
 	});
 
-	test('the open-graph-view command opens a "Project Graph" tab without throwing', async () => {
-		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(OPEN_GRAPH_VIEW_COMMAND)));
+	test('the open-architecture command opens a "Project Graph" tab without throwing', async () => {
+		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(OPEN_ARCHITECTURE_COMMAND)));
 
-		const tab = vscode.window.tabGroups.all.flatMap((group) => group.tabs).find((t) => t.label === 'Project Graph');
+		const tab = await findTabByLabel('Project Graph');
 		assert.ok(tab, 'expected an open tab titled "Project Graph"');
 
 		await vscode.window.tabGroups.close(tab);

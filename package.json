@@ -23,8 +23,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "agentGraph.openGraphView",
-        "title": "Project Graph: Open Graph View"
+        "command": "agentGraph.analyzeWorkspace",
+        "title": "Project Graph: Analyze Workspace"
+      },
+      {
+        "command": "agentGraph.openArchitecture",
+        "title": "Project Graph: Open Architecture"
       }
     ]
   },
