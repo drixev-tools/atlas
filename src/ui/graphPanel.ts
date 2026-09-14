@@ -64,6 +64,10 @@ export class GraphPanel implements vscode.Disposable {
 		return GraphPanel.current;
 	}
 
+	get webview(): vscode.Webview {
+		return this.panel.webview;
+	}
+
 	dispose(): void {
 		if (this.disposed) {
 			return;
