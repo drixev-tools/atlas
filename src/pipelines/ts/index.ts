@@ -12,6 +12,14 @@ export * from './program';
 export interface RunTsPipelineOptions {
 	/** Explicit file list to analyze. When omitted, `rootDir` is walked for TS/JS source files. */
 	files?: string[];
+	/**
+	 * Absolute paths of every source file known to belong to the project.
+	 * Only needed when `files` is a subset of the project (e.g. a single
+	 * changed file for an incremental update, Epic 5) so imports to sibling
+	 * files not in `files` still resolve to their file node instead of an
+	 * external-module node. Defaults to `files` itself.
+	 */
+	knownFiles?: string[];
 }
 
 /**
@@ -30,5 +38,5 @@ export function runTsPipeline(rootDir: string, options: RunTsPipelineOptions = {
 	const sourceFiles = getSourceFilesOf(program, fileNames);
 	const extractedFiles = extractProgram(program, sourceFiles);
 
-	return normalizeToGraph(program, extractedFiles);
+	return normalizeToGraph(program, extractedFiles, { knownFilePaths: options.knownFiles });
 }

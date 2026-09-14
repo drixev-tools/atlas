@@ -39,16 +39,34 @@ function resolveModuleSpecifier(
 	return { nodeId: externalNodeId(moduleSpecifier), isExternal: true };
 }
 
+export interface NormalizeToGraphOptions {
+	/**
+	 * Absolute paths of every source file known to belong to the project, in
+	 * addition to `files` itself. Lets a partial extraction — e.g. a single
+	 * changed file re-parsed for an incremental update (Epic 5) — still
+	 * resolve imports to sibling file nodes it isn't re-parsing this run,
+	 * instead of misclassifying them as external modules.
+	 */
+	knownFilePaths?: string[];
+}
+
 /**
  * Converts the intermediate TS/JS extraction result into the pipeline-agnostic
  * graph model, resolving relative imports to sibling file nodes (via the TS
  * module resolution algorithm) and collapsing everything else — packages,
  * unresolvable specifiers — into shared external-module nodes.
  */
-export function normalizeToGraph(program: ts.Program, files: ExtractedFile[]): CodeGraph {
+export function normalizeToGraph(
+	program: ts.Program,
+	files: ExtractedFile[],
+	options: NormalizeToGraphOptions = {}
+): CodeGraph {
 	const graph = createEmptyGraph();
 	const compilerOptions = program.getCompilerOptions();
-	const knownFileIds = new Set(files.map((f) => fileNodeId(f.filePath)));
+	const knownFileIds = new Set([
+		...files.map((f) => fileNodeId(f.filePath)),
+		...(options.knownFilePaths ?? []).map(fileNodeId)
+	]);
 	const externalNodeIds = new Set<string>();
 
 	const addNode = (node: GraphNode): void => {

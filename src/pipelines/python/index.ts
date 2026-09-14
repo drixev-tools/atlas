@@ -13,6 +13,14 @@ export * from './server';
 export interface RunPythonPipelineOptions {
 	/** Explicit file list to analyze. When omitted, `rootDir` is walked for Python source files. */
 	files?: string[];
+	/**
+	 * Absolute paths of every source file known to belong to the project.
+	 * Only needed when `files` is a subset of the project (e.g. a single
+	 * changed file for an incremental update, Epic 5) so imports to sibling
+	 * files not in `files` still resolve to their file node instead of an
+	 * external-module node. Defaults to `files` itself.
+	 */
+	knownFiles?: string[];
 	/** Reuse an already-running server instead of starting/stopping a new one for this call. */
 	server?: PythonServer;
 	serverOptions?: PythonServerOptions;
@@ -43,7 +51,7 @@ export async function runPythonPipeline(
 	try {
 		await server.start();
 		const { files } = await extractFiles(server, fileNames);
-		return normalizeToGraph(files, rootDir);
+		return normalizeToGraph(files, rootDir, { knownFilePaths: options.knownFiles });
 	} finally {
 		if (ownsServer) {
 			await server.stop();
