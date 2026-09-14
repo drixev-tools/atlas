@@ -4,3 +4,4 @@
 // (Epic 6).
 export * from './model';
 export * as tsPipeline from './ts';
+export * as pythonPipeline from './python';
