@@ -29,6 +29,10 @@
       {
         "command": "agentGraph.openArchitecture",
         "title": "Project Graph: Open Architecture"
+      },
+      {
+        "command": "agentGraph.calculateImpact",
+        "title": "Project Graph: Calculate Impact"
       }
     ]
   },

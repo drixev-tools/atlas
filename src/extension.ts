@@ -1,23 +1,34 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { GitStatusProvider } from './core/gitStatus';
 import { ProjectGraphStore } from './core/store';
-import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace, GraphPanel } from './ui';
+import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace, CalculateImpactResult, CALCULATE_IMPACT_COMMAND, calculateImpact, GraphPanel } from './ui';
 
 export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
-export { ANALYZE_WORKSPACE_COMMAND };
+export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND };
 
 const ANALYZE_NOW_ACTION = 'Analyze Workspace';
+
+/**
+ * Reused across "Calculate Impact" invocations so its short git-status cache
+ * (see `GitStatusProvider`) is actually effective instead of starting cold
+ * every time the command runs.
+ */
+let gitStatusProvider: GitStatusProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
 	console.log('Agent Graph extension activated');
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(ANALYZE_WORKSPACE_COMMAND, () => runAnalyzeWorkspaceCommand(context)),
-		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context))
+		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context)),
+		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context))
 	);
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+	gitStatusProvider = undefined;
+}
 
 /**
  * "Project Graph: Analyze Workspace" — the full-rebuild entry point: runs
@@ -85,6 +96,83 @@ async function promptToAnalyzeWorkspace(context: vscode.ExtensionContext): Promi
 		await vscode.commands.executeCommand(ANALYZE_WORKSPACE_COMMAND);
 		await openArchitecture(context);
 	}
+}
+
+/**
+ * "Project Graph: Calculate Impact" — computes the structural impact of the
+ * workspace's uncommitted git changes (or, on a clean working tree, of the
+ * active editor's file): their transitive consumers plus the tests related to
+ * either. See `calculateImpact` for the underlying, `vscode`-free
+ * orchestration this wraps.
+ */
+async function runCalculateImpactCommand(context: vscode.ExtensionContext): Promise<void> {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	if (!folder) {
+		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before calculating impact.');
+		return;
+	}
+
+	await vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			title: 'Project Graph: Calculating impact',
+			cancellable: false
+		},
+		async (progress) => {
+			try {
+				const result = await calculateImpact({
+					rootDir: folder.uri.fsPath,
+					dbPath: resolveGraphDbPath(context),
+					activeFilePath: vscode.window.activeTextEditor?.document.uri.fsPath,
+					gitStatus: (gitStatusProvider ??= new GitStatusProvider()),
+					onProgress: (message) => progress.report({ message })
+				});
+				await presentImpactResult(result);
+			} catch (error) {
+				void vscode.window.showErrorMessage(
+					`Project Graph: impact calculation failed — ${error instanceof Error ? error.message : String(error)}`
+				);
+			}
+		}
+	);
+}
+
+async function presentImpactResult(result: CalculateImpactResult): Promise<void> {
+	if (result.source === 'none') {
+		void vscode.window.showInformationMessage(
+			'Project Graph: no uncommitted git changes and no active file in the Project Graph — nothing to calculate impact for.'
+		);
+		return;
+	}
+
+	const sourceLabel = result.source === 'git' ? 'uncommitted changes' : 'the active file';
+	void vscode.window.showInformationMessage(
+		`Project Graph: impact of ${sourceLabel} (${result.targets.length} file(s)) — ${result.impactedFiles.length} file(s) affected, ${result.relatedTests.length} related test(s).`
+	);
+
+	if (result.impactedFiles.length === 0 && result.relatedTests.length === 0) {
+		return;
+	}
+
+	const items: Array<vscode.QuickPickItem & { filePath: string }> = [
+		...result.targets.map((filePath) => impactQuickPickItem(filePath, '$(edit)', 'changed')),
+		...result.impactedFiles.map((filePath) => impactQuickPickItem(filePath, '$(arrow-right)', 'impacted')),
+		...result.relatedTests.map((filePath) => impactQuickPickItem(filePath, '$(beaker)', 'related test'))
+	];
+
+	const picked = await vscode.window.showQuickPick(items, {
+		title: 'Project Graph: Impact',
+		placeHolder: 'Select a file to open'
+	});
+	if (picked) {
+		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(picked.filePath));
+	}
+}
+
+function impactQuickPickItem(filePath: string, icon: string, description: string): vscode.QuickPickItem & { filePath: string } {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	const label = folder ? path.relative(folder.uri.fsPath, filePath) : filePath;
+	return { label: `${icon} ${label}`, description, filePath };
 }
 
 /**
