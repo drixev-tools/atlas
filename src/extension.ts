@@ -1,11 +1,23 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { AnthropicClaudeDesignClient, AuthenticationError, ensureAnthropicApiKey, SecretStorageApiKeyStore } from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { ProjectGraphStore } from './core/store';
-import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace, CalculateImpactResult, CALCULATE_IMPACT_COMMAND, calculateImpact, GraphPanel } from './ui';
+import {
+	ANALYZE_WORKSPACE_COMMAND,
+	analyzeWorkspace,
+	CalculateImpactResult,
+	CALCULATE_IMPACT_COMMAND,
+	calculateImpact,
+	collectProjectIntent,
+	DesignProjectResult,
+	designProject,
+	DESIGN_PROJECT_COMMAND,
+	GraphPanel
+} from './ui';
 
 export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
-export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND };
+export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND };
 
 const ANALYZE_NOW_ACTION = 'Analyze Workspace';
 
@@ -22,7 +34,8 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(ANALYZE_WORKSPACE_COMMAND, () => runAnalyzeWorkspaceCommand(context)),
 		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context)),
-		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context))
+		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context)),
+		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => runDesignProjectCommand(context))
 	);
 }
 
@@ -173,6 +186,77 @@ function impactQuickPickItem(filePath: string, icon: string, description: string
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	const label = folder ? path.relative(folder.uri.fsPath, filePath) : filePath;
 	return { label: `${icon} ${label}`, description, filePath };
+}
+
+const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';
+
+/**
+ * "Project Graph: Design Project" — collects intent for a new project or
+ * feature (structured fields plus free text, see `collectProjectIntent`),
+ * resolves the user's Anthropic API key from SecretStorage (prompting for it
+ * the first time), and asks Claude to turn that intent into a Proposed
+ * Graph. See `designProject` for the underlying, `vscode`-free orchestration
+ * this wraps once intent and API key are in hand.
+ */
+async function runDesignProjectCommand(context: vscode.ExtensionContext): Promise<void> {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	if (!folder) {
+		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before designing a project.');
+		return;
+	}
+
+	const intent = await collectProjectIntent();
+	if (!intent) {
+		return;
+	}
+
+	const apiKeys = new SecretStorageApiKeyStore(context.secrets);
+	const apiKey = await ensureAnthropicApiKey(apiKeys);
+	if (!apiKey) {
+		void vscode.window.showErrorMessage('Project Graph: an Anthropic API key is required to design a project.');
+		return;
+	}
+
+	await vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			title: 'Project Graph: Designing project',
+			cancellable: false
+		},
+		async (progress) => {
+			try {
+				const result = await designProject({
+					rootDir: folder.uri.fsPath,
+					dbPath: resolveGraphDbPath(context),
+					intent,
+					claudeClient: new AnthropicClaudeDesignClient(apiKey),
+					onProgress: (message) => progress.report({ message })
+				});
+				await presentDesignProjectResult(result);
+			} catch (error) {
+				if (error instanceof AuthenticationError) {
+					await apiKeys.delete();
+					void vscode.window.showErrorMessage(
+						'Project Graph: Anthropic rejected the stored API key — it has been cleared, run "Design Project" again to enter a new one.'
+					);
+					return;
+				}
+				void vscode.window.showErrorMessage(
+					`Project Graph: designing the project failed — ${error instanceof Error ? error.message : String(error)}`
+				);
+			}
+		}
+	);
+}
+
+async function presentDesignProjectResult(result: DesignProjectResult): Promise<void> {
+	const choice = await vscode.window.showInformationMessage(
+		`Project Graph: proposed architecture ready — ${result.nodeCount} node(s), ${result.edgeCount} edge(s). Open the graph to review it.`,
+		OPEN_ARCHITECTURE_ACTION
+	);
+	if (choice === OPEN_ARCHITECTURE_ACTION) {
+		await vscode.commands.executeCommand(OPEN_ARCHITECTURE_COMMAND);
+	}
 }
 
 /**

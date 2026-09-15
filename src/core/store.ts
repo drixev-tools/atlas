@@ -290,6 +290,20 @@ export class ProjectGraphStore {
 		this.db.run('DELETE FROM edges; DELETE FROM nodes;');
 	}
 
+	/**
+	 * Removes only the nodes/edges tagged `status`, leaving every other status
+	 * slice untouched. Used to re-populate just the Proposed Graph (Epic 9)
+	 * without disturbing the Observed Graph the extraction pipelines built —
+	 * unlike `clear()`, which wipes the whole store for a full rebuild. Edges
+	 * are deleted before nodes so the `ON DELETE CASCADE` from a node of this
+	 * status never reaches into an edge of a *different* status that happens
+	 * to reference it.
+	 */
+	clearByStatus(status: GraphStatus): void {
+		this.db.run('DELETE FROM edges WHERE status = ?', [status]);
+		this.db.run('DELETE FROM nodes WHERE status = ?', [status]);
+	}
+
 	private queryNodes(sql: string, params: BindParams): StoredNode[] {
 		const stmt = this.db.prepare(sql);
 		try {

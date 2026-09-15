@@ -2,20 +2,25 @@
 // Python). Keeping this pipeline-agnostic lets persistence (Epic 4) and the
 // renderer (Epic 6) work against a single shape regardless of source language.
 
-export type NodeKind =
-	| 'file'
-	| 'module'
-	| 'externalModule'
-	| 'function'
-	| 'class'
-	| 'interface'
-	| 'method'
-	| 'property'
-	| 'variable'
-	| 'enum'
-	| 'typeAlias';
+export const NODE_KINDS = [
+	'file',
+	'module',
+	'externalModule',
+	'function',
+	'class',
+	'interface',
+	'method',
+	'property',
+	'variable',
+	'enum',
+	'typeAlias'
+] as const;
 
-export type EdgeKind = 'contains' | 'imports' | 'exports';
+export type NodeKind = (typeof NODE_KINDS)[number];
+
+export const EDGE_KINDS = ['contains', 'imports', 'exports'] as const;
+
+export type EdgeKind = (typeof EDGE_KINDS)[number];
 
 export interface SourceRange {
 	startLine: number;

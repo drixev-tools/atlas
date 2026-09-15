@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND } from '../extension';
+import { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND } from '../extension';
 
 suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
@@ -27,6 +27,11 @@ suite('Extension Test Suite', () => {
 		assert.ok(commands.includes('agentGraph.calculateImpact'));
 	});
 
+	test('registers the "Project Graph: Design Project" command', async () => {
+		const commands = await vscode.commands.getCommands(true);
+		assert.ok(commands.includes('agentGraph.designProject'));
+	});
+
 	test('the analyze-workspace command reports an error instead of throwing when no folder is open', async () => {
 		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(ANALYZE_WORKSPACE_COMMAND)));
@@ -35,5 +40,10 @@ suite('Extension Test Suite', () => {
 	test('the calculate-impact command reports an error instead of throwing when no folder is open', async () => {
 		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(CALCULATE_IMPACT_COMMAND)));
+	});
+
+	test('the design-project command reports an error instead of throwing when no folder is open', async () => {
+		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
+		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(DESIGN_PROJECT_COMMAND)));
 	});
 });

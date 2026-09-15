@@ -138,6 +138,18 @@ suite('ProjectGraphStore: CRUD', () => {
 		assert.strictEqual(store.listNodes().length, 0);
 		assert.strictEqual(store.listEdges().length, 0);
 	});
+
+	test('clearByStatus removes only the matching status, leaving the rest of the graph intact', () => {
+		store.upsertNode(makeFileNode('file:1', 'index.ts'));
+		store.upsertNode(makeFunctionNode('symbol:1', 'run', '/project/index.ts'), 'proposed_only');
+		store.upsertEdge(makeContainsEdge('edge:1', 'file:1', 'symbol:1'), 'proposed_only');
+
+		store.clearByStatus('proposed_only');
+
+		assert.strictEqual(store.getNode('file:1')?.status, 'observed_only');
+		assert.strictEqual(store.getNode('symbol:1'), undefined);
+		assert.strictEqual(store.getEdge('edge:1'), undefined);
+	});
 });
 
 suite('ProjectGraphStore: file persistence', () => {

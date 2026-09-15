@@ -33,6 +33,10 @@
       {
         "command": "agentGraph.calculateImpact",
         "title": "Project Graph: Calculate Impact"
+      },
+      {
+        "command": "agentGraph.designProject",
+        "title": "Project Graph: Design Project"
       }
     ]
   },
@@ -51,6 +55,7 @@
     "test": "vscode-test"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "cytoscape": "^3.34.3",
     "sql.js": "^1.14.2",
     "typescript": "^5.9.0"
