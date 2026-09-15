@@ -46,4 +46,17 @@ suite('Extension Test Suite', () => {
 		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(DESIGN_PROJECT_COMMAND)));
 	});
+
+	/**
+	 * The Cytoscape.js graph viewer this command used to open (Epic 6) was
+	 * retired in Fase 1.2, Epic D, pending the React Flow rebuild (Epic F).
+	 * It must not throw or silently no-op — it needs to leave the user with a
+	 * clear "not available yet" message instead.
+	 */
+	test('the open-architecture command reports it is temporarily unavailable instead of opening a graph view', async () => {
+		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand('agentGraph.openArchitecture')));
+
+		const tab = vscode.window.tabGroups.all.flatMap((group) => group.tabs).find((t) => t.label === 'Project Graph');
+		assert.strictEqual(tab, undefined, 'expected no "Project Graph" webview tab to open');
+	});
 });

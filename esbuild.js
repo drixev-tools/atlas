@@ -39,27 +39,14 @@ async function main() {
 		logLevel: 'silent',
 		plugins: [esbuildProblemMatcherPlugin]
 	});
-	// Runs inside the graph webview's own browser context (Epic 6), so it's
-	// bundled fully standalone, Cytoscape.js included, rather than treated
-	// like a Node dependency of the extension host.
-	const webviewCtx = await esbuild.context({
-		entryPoints: ['src/ui/webview/main.ts'],
-		bundle: true,
-		format: 'iife',
-		minify: production,
-		sourcemap: !production,
-		sourcesContent: false,
-		platform: 'browser',
-		outfile: 'dist/ui/webview/main.js',
-		logLevel: 'silent',
-		plugins: [esbuildProblemMatcherPlugin]
-	});
-
+	// The Cytoscape.js graph webview this used to also bundle (Epic 6) was
+	// retired in Fase 1.2, Epic D; a webview build step returns once the
+	// React Flow rebuild (Epic F) adds one back.
 	if (watch) {
-		await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
+		await extensionCtx.watch();
 	} else {
-		await Promise.all([extensionCtx.rebuild(), webviewCtx.rebuild()]);
-		await Promise.all([extensionCtx.dispose(), webviewCtx.dispose()]);
+		await extensionCtx.rebuild();
+		await extensionCtx.dispose();
 	}
 }
 

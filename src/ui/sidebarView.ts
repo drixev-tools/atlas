@@ -4,14 +4,16 @@
 // files/modules/symbols navigation tree built from the Project Graph Core.
 // The pure file/symbol tree-building logic lives in ./sidebarData; this
 // module owns everything `vscode`-specific: `TreeItem` rendering, the
-// `TreeView` itself, and syncing a click to the editor and to whichever
-// `GraphPanel` (./graphPanel) is currently open (task 3).
+// `TreeView` itself, and syncing a click to the editor (task 3). It no
+// longer also syncs selection into a graph view — the Cytoscape.js webview
+// that used to receive it was retired in Fase 1.2, Epic D; that sync will
+// come back once the React Flow rebuild (Epic F) lands.
 import * as vscode from 'vscode';
 import { NodeKind } from '../pipelines/model';
 import { ProjectGraphStore, StoredNode } from '../core/store';
 import { ANALYZE_WORKSPACE_COMMAND } from './analyzeWorkspace';
 import { CALCULATE_IMPACT_COMMAND } from './impact';
-import { GraphPanel, OPEN_ARCHITECTURE_COMMAND } from './graphPanel';
+import { OPEN_ARCHITECTURE_COMMAND } from './architecture';
 import { buildProjectFileTree, SidebarTreeNode } from './sidebarData';
 
 export const SIDEBAR_VIEW_ID = 'agentGraph.explorer';
@@ -57,10 +59,10 @@ export interface SidebarOptions {
 
 /**
  * `TreeDataProvider` backing the sidebar. Holds its own `ProjectGraphStore`
- * handle, separate from `GraphPanel`'s or a command's: sql.js is an
- * in-memory database loaded from and saved back to `dbPath` on each open/save
- * (see `core/database.ts`), not a shared connection, so seeing another
- * command's writes means reopening the file, not just re-querying.
+ * handle, separate from any command's own: sql.js is an in-memory database
+ * loaded from and saved back to `dbPath` on each open/save (see
+ * `core/database.ts`), not a shared connection, so seeing another command's
+ * writes means reopening the file, not just re-querying.
  */
 export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeElement>, vscode.Disposable {
 	private readonly changeEmitter = new vscode.EventEmitter<void>();
@@ -136,26 +138,21 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 	}
 }
 
-/**
- * Task 3: clicking a tree item opens its file in the editor (revealing its
- * exact range for a symbol) and syncs selection into whichever `GraphPanel`
- * is currently open, via the same `postMessage` bridge `graphPanel.ts` uses
- * for its own graph updates.
- */
+/** Task 3: clicking a tree item opens its file in the editor, revealing its exact range for a symbol. A no-op for a node with no `filePath` (e.g. an external module). */
 export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
-	if (node.filePath) {
-		const document = await vscode.workspace.openTextDocument(node.filePath);
-		const selection = node.range
-			? new vscode.Range(
-					node.range.startLine - 1,
-					node.range.startColumn - 1,
-					node.range.endLine - 1,
-					node.range.endColumn - 1
-			  )
-			: undefined;
-		await vscode.window.showTextDocument(document, { preview: true, selection });
+	if (!node.filePath) {
+		return;
 	}
-	GraphPanel.selectNode(node.id);
+	const document = await vscode.workspace.openTextDocument(node.filePath);
+	const selection = node.range
+		? new vscode.Range(
+				node.range.startLine - 1,
+				node.range.startColumn - 1,
+				node.range.endLine - 1,
+				node.range.endColumn - 1
+		  )
+		: undefined;
+	await vscode.window.showTextDocument(document, { preview: true, selection });
 }
 
 /** Registers the Activity Bar tree view, its refresh/select commands, and triggers the initial load. Everything it creates is pushed onto `context.subscriptions`. */

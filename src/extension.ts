@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 import { AnthropicClaudeDesignClient, AuthenticationError, ensureAnthropicApiKey, SecretStorageApiKeyStore } from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
-import { ProjectGraphStore } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
@@ -14,15 +13,12 @@ import {
 	DesignProjectResult,
 	designProject,
 	DESIGN_PROJECT_COMMAND,
-	GraphPanel,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
 	registerSidebar
 } from './ui';
 
 export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND };
-
-const ANALYZE_NOW_ACTION = 'Analyze Workspace';
 
 /**
  * Reused across "Calculate Impact" invocations so its short git-status cache
@@ -102,34 +98,19 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 }
 
 /**
- * "Project Graph: Open Architecture" — opens the Cytoscape.js graph viewer
- * (Epic 6) over whatever is currently in the Project Graph store. The
- * webview already renders an empty-state message pointing at "Analyze
- * Workspace" (see `GraphPanel`), so this only needs to add a one-time,
- * non-blocking prompt offering to run that command for a workspace that
- * hasn't been analyzed yet.
+ * "Project Graph: Open Architecture" — the Cytoscape.js graph viewer it used
+ * to open (Epic 6) was retired in Fase 1.2, Epic D: Cytoscape is gone from
+ * the codebase and the view has no replacement yet. The command stays
+ * registered (so existing shortcuts/menu entries and other commands that
+ * invoke it, e.g. "Design Project"'s follow-up prompt, keep working) but is
+ * disabled until the React Flow rebuild (Epic F) lands.
  */
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'openArchitecture');
 
-	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
-	const isEmpty = store.getGraph().nodes.length === 0;
-	GraphPanel.createOrShow(context.extensionUri, store);
-
-	if (isEmpty) {
-		void promptToAnalyzeWorkspace(context);
-	}
-}
-
-async function promptToAnalyzeWorkspace(context: vscode.ExtensionContext): Promise<void> {
-	const choice = await vscode.window.showInformationMessage(
-		'Project Graph: this workspace has not been analyzed yet. Run "Analyze Workspace" to build the graph.',
-		ANALYZE_NOW_ACTION
+	void vscode.window.showInformationMessage(
+		'Project Graph: the architecture view is being rebuilt and is temporarily unavailable — pending the React Flow rework.'
 	);
-	if (choice === ANALYZE_NOW_ACTION) {
-		await vscode.commands.executeCommand(ANALYZE_WORKSPACE_COMMAND);
-		await openArchitecture(context);
-	}
 }
 
 /**

@@ -5,8 +5,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace } from '../../ui/analyzeWorkspace';
 import { CALCULATE_IMPACT_COMMAND } from '../../ui/impact';
-import { GraphPanel, OPEN_ARCHITECTURE_COMMAND } from '../../ui/graphPanel';
-import { ProjectGraphStore, StoredNode } from '../../core/store';
+import { OPEN_ARCHITECTURE_COMMAND } from '../../ui/architecture';
+import { StoredNode } from '../../core/store';
 import {
 	ProjectGraphTreeProvider,
 	REFRESH_SIDEBAR_COMMAND,
@@ -19,12 +19,6 @@ function writeFile(dir: string, name: string, contents: string): string {
 	fs.mkdirSync(path.dirname(filePath), { recursive: true });
 	fs.writeFileSync(filePath, contents, 'utf8');
 	return filePath;
-}
-
-function extensionUri(): vscode.Uri {
-	const extension = vscode.extensions.getExtension('agent-graph.agent-graph');
-	assert.ok(extension, 'agent-graph extension must be present');
-	return extension.extensionUri;
 }
 
 suite('Sidebar Panel (Fase 1.1, Epic A)', () => {
@@ -147,27 +141,13 @@ suite('Sidebar Panel (Fase 1.1, Epic A)', () => {
 			assert.strictEqual(editor?.selection.start.character, 7);
 		});
 
-		test('does not throw when no GraphPanel is open (selection sync is a no-op)', async () => {
-			const filePath = writeFile(tmpDir, 'math.ts', 'export const value = 1;\n');
-			const node: StoredNode = { id: 'symbol:value', kind: 'variable', name: 'value', filePath, status: 'observed_only' };
-
-			await assert.doesNotReject(selectProjectGraphNode(node));
-		});
-
-		test('syncs selection into an open GraphPanel without throwing', async () => {
-			// No `filePath` on purpose: isolates the GraphPanel sync path from the
-			// editor-opening path already covered above, and sidesteps it having to
-			// close a text editor the webview panel's own reveal/focus can leave in
-			// an inconsistent tab state on Windows.
+		test('does not throw and leaves the editor untouched for a node with no filePath', async () => {
+			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 			const node: StoredNode = { id: 'symbol:value', kind: 'variable', name: 'value', status: 'observed_only' };
 
-			const store = await ProjectGraphStore.open();
-			const panel = GraphPanel.createOrShow(extensionUri(), store);
-			try {
-				await assert.doesNotReject(selectProjectGraphNode(node));
-			} finally {
-				panel.dispose();
-			}
+			await assert.doesNotReject(selectProjectGraphNode(node));
+
+			assert.strictEqual(vscode.window.activeTextEditor, undefined);
 		});
 	});
 });
