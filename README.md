@@ -39,6 +39,13 @@ npm test           # compile and run the extension test suite
 npm run package    # production build (minified, no sourcemaps)
 ```
 
+## Privacy
+
+Agent Graph keeps a small set of local usage counters (how many times each
+command runs) in VS Code's own per-install storage (`context.globalState`).
+Nothing is ever sent to a server — there is no telemetry and no network call
+in this extension's code.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).

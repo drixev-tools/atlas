@@ -8,7 +8,8 @@
 // in ./testLinks, and the vscode.git integration backing its default target
 // set in ./gitStatus (types for the extension API it talks to in
 // ./gitExtensionApi). The Proposed-vs-Observed matching algorithm and status
-// annotation (Epic 10) live in ./comparison.
+// annotation (Epic 10) live in ./comparison. Local, offline usage counters
+// (Epic 11) live in ./metrics.
 export * from './schema';
 export * from './database';
 export * from './store';
@@ -20,3 +21,4 @@ export * from './testLinks';
 export * from './gitExtensionApi';
 export * from './gitStatus';
 export * from './comparison';
+export * from './metrics';

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { PythonServer, runPythonPipeline } from '../pipelines/python';
 import { runTsPipeline } from '../pipelines/ts';
 import { applyFileGraph, knownProjectFiles, removeFileGraph } from './incremental';
+import { UsageMetricsStore } from './metrics';
 import { GraphStatus } from './schema';
 import { ProjectGraphStore } from './store';
 
@@ -66,6 +67,8 @@ export interface ProjectGraphWatcherOptions {
 	pythonServer?: PythonServer;
 	/** Reports errors from a failed re-parse/update instead of throwing out of the watcher's event handlers. Defaults to `console.error`. */
 	onError?: (error: unknown, filePath: string) => void;
+	/** Counts each applied create/change/delete under the `incrementalUpdate` usage metric (Epic 11). Omit to skip counting, e.g. in tests. */
+	metrics?: UsageMetricsStore;
 }
 
 /**
@@ -132,6 +135,7 @@ export class ProjectGraphWatcher implements vscode.Disposable {
 				  });
 
 		applyFileGraph(this.options.store, resolvedPath, graph, { status: this.options.status });
+		await this.options.metrics?.record('incrementalUpdate');
 	}
 
 	private async handleDelete(filePath: string): Promise<void> {
@@ -139,5 +143,6 @@ export class ProjectGraphWatcher implements vscode.Disposable {
 			return;
 		}
 		removeFileGraph(this.options.store, path.resolve(filePath));
+		await this.options.metrics?.record('incrementalUpdate');
 	}
 }
