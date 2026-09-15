@@ -10,9 +10,12 @@
 // rebuild in Epic F — see extension.ts for the disabled command itself). The
 // Activity Bar Tree View sidebar (Fase 1.1, Epic A) has its pure
 // files/modules/symbols tree-building logic in ./sidebarData and its
-// `vscode.TreeDataProvider`/registration in ./sidebarView.
+// `vscode.TreeDataProvider`/registration in ./sidebarView. The workflow-
+// relevance filter/reroute the React Flow rebuild will render (Fase 1.2,
+// Epic E) lives in ./graphFilter.
 export * from './architecture';
 export * from './graphFocus';
+export * from './graphFilter';
 export * from './analyzeWorkspace';
 export * from './impact';
 export * from './designProject';
