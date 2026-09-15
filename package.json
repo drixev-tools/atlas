@@ -89,6 +89,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
     "cytoscape": "^3.34.3",
+    "cytoscape-dagre": "^4.0.1",
     "sql.js": "^1.14.2",
     "typescript": "^5.9.0"
   },

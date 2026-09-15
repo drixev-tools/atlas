@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ProjectGraphStore } from '../core/store';
-import { toCytoscapeElements } from './graphData';
+import { findInitialFocusNodeId, toCytoscapeElements } from './graphData';
 
 export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
 
@@ -14,9 +14,11 @@ type HostToWebviewMessage =
 	| {
 			type: 'graph:update';
 			elements: unknown[];
+			/** Rediseño de visualización (Fase 1.1, Epic B, task 7): the node to focus by default, e.g. the active editor's file. The webview shows only this node's direct relations (task 4) until the user expands further; `undefined` falls back to rendering the whole graph (no file node to anchor on, e.g. an empty workspace). */
+			focusNodeId: string | undefined;
 	  }
 	| {
-			/** Sidebar Panel (Fase 1.1, Epic A, task 3): selects/focuses one node's neighborhood without waiting for a fresh `graph:update`. No-op in the webview if `nodeId` isn't in the currently rendered graph. */
+			/** Sidebar Panel (Fase 1.1, Epic A, task 3): re-focuses the view on one node — its direct relations only (Epic B tasks 3-4) — without waiting for a fresh `graph:update`. No-op in the webview if `nodeId` isn't in the currently loaded graph. */
 			type: 'graph:select';
 			nodeId: string;
 	  };
@@ -29,8 +31,9 @@ type WebviewToHostMessage = {
  * Single Cytoscape.js webview panel for the workspace's Project Graph. Owns
  * only the panel lifecycle and the postMessage bridge; the actual node/edge
  * data comes from `ProjectGraphStore` (Epic 4/5) via `toCytoscapeElements`,
- * and rendering/navigation (zoom, selection, neighbor highlighting) happens
- * entirely in the webview script (`ui/webview/main.ts`).
+ * and rendering/navigation (hierarchical layout, focus, progressive
+ * expansion, the side detail panel — Epic B) happens entirely in the webview
+ * script (`ui/webview/main.ts`).
  */
 export class GraphPanel implements vscode.Disposable {
 	private static current: GraphPanel | undefined;
@@ -108,11 +111,18 @@ export class GraphPanel implements vscode.Disposable {
 		}
 	}
 
-	/** Sent on webview load (`graph:ready`) and whenever the panel is re-shown with a fresh store, e.g. via the command being run again. */
+	/**
+	 * Sent on webview load (`graph:ready`) and whenever the panel is re-shown
+	 * with a fresh store, e.g. via the command being run again. `focusNodeId`
+	 * (Epic B, task 7) is resolved from the *current* active editor at each of
+	 * those moments — both are, in effect, "opening the view".
+	 */
 	private postGraph(): void {
+		const graph = this.store.getGraph();
 		const update: HostToWebviewMessage = {
 			type: 'graph:update',
-			elements: toCytoscapeElements(this.store.getGraph())
+			elements: toCytoscapeElements(graph),
+			focusNodeId: findInitialFocusNodeId(graph, vscode.window.activeTextEditor?.document.uri.fsPath)
 		};
 		void this.panel.webview.postMessage(update);
 	}
@@ -180,6 +190,54 @@ export class GraphPanel implements vscode.Disposable {
 			border-radius: 2px;
 			vertical-align: middle;
 		}
+		#detail-panel {
+			position: absolute;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			width: 260px;
+			overflow-y: auto;
+			box-sizing: border-box;
+			padding: 12px;
+			background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+			border-left: 1px solid var(--vscode-panel-border, transparent);
+			font-size: 12px;
+		}
+		#detail-header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 8px;
+			margin-bottom: 8px;
+		}
+		#detail-title {
+			font-weight: 600;
+			word-break: break-word;
+		}
+		#detail-close {
+			background: none;
+			border: none;
+			color: inherit;
+			cursor: pointer;
+			font-size: 14px;
+			line-height: 1;
+			padding: 0;
+			opacity: 0.7;
+		}
+		#detail-close:hover {
+			opacity: 1;
+		}
+		#detail-fields {
+			margin: 0;
+		}
+		#detail-fields dt {
+			opacity: 0.7;
+			margin-top: 8px;
+		}
+		#detail-fields dd {
+			margin: 0;
+			word-break: break-word;
+		}
 	</style>
 </head>
 <body>
@@ -189,6 +247,13 @@ export class GraphPanel implements vscode.Disposable {
 		<span><span class="swatch" style="background:#4a90d9;"></span>Observed</span>
 		<span><span class="swatch" style="background:#4a90d9;border:2px dashed #b18cf2;"></span>Proposed only</span>
 		<span><span class="swatch" style="background:#4a90d9;border:2px solid #4caf50;"></span>Matched</span>
+	</div>
+	<div id="detail-panel" hidden>
+		<div id="detail-header">
+			<span id="detail-title"></span>
+			<button id="detail-close" aria-label="Close details" title="Close">&times;</button>
+		</div>
+		<dl id="detail-fields"></dl>
 	</div>
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
