@@ -37,8 +37,40 @@
       {
         "command": "agentGraph.designProject",
         "title": "Project Graph: Design Project"
+      },
+      {
+        "command": "agentGraph.sidebar.refresh",
+        "title": "Project Graph: Refresh Sidebar",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentGraph",
+          "title": "Project Graph",
+          "icon": "media/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentGraph": [
+        {
+          "id": "agentGraph.explorer",
+          "name": "Project Graph",
+          "icon": "media/activity-bar-icon.svg"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentGraph.sidebar.refresh",
+          "when": "view == agentGraph.explorer",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

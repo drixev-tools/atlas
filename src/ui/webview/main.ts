@@ -17,6 +17,13 @@ interface GraphUpdateMessage {
 	elements: cytoscape.ElementDefinition[];
 }
 
+interface GraphSelectMessage {
+	type: 'graph:select';
+	nodeId: string;
+}
+
+type HostMessage = GraphUpdateMessage | GraphSelectMessage;
+
 const HIGHLIGHTED_CLASS = 'cy-highlighted';
 const FADED_CLASS = 'cy-faded';
 
@@ -168,9 +175,26 @@ function clearHighlight(): void {
 	cy?.elements().removeClass(FADED_CLASS).removeClass(HIGHLIGHTED_CLASS);
 }
 
-window.addEventListener('message', (event: MessageEvent<GraphUpdateMessage>) => {
+/** Sidebar Panel (Fase 1.1, Epic A, task 3): mirrors a tree-item click by selecting and centering that node, reusing the same neighborhood highlight a direct click in the graph applies. */
+function selectNode(nodeId: string): void {
+	if (!cy) {
+		return;
+	}
+	const node = cy.$id(nodeId);
+	if (node.empty()) {
+		return;
+	}
+	cy.elements(':selected').unselect();
+	node.select();
+	highlightNeighborhood(node);
+	cy.animate({ center: { eles: node } }, { duration: 200 });
+}
+
+window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
 	if (event.data?.type === 'graph:update') {
 		render(event.data.elements);
+	} else if (event.data?.type === 'graph:select') {
+		selectNode(event.data.nodeId);
 	}
 });
 

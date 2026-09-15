@@ -2,16 +2,24 @@ import * as vscode from 'vscode';
 import { ProjectGraphStore } from '../core/store';
 import { toCytoscapeElements } from './graphData';
 
+export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
+
 const VIEW_TYPE = 'agentGraph.graphView';
 const VIEW_TITLE = 'Project Graph';
 
 /** Path, relative to the extension root, of the esbuild-bundled webview script (see esbuild.js). */
 const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 
-type HostToWebviewMessage = {
-	type: 'graph:update';
-	elements: unknown[];
-};
+type HostToWebviewMessage =
+	| {
+			type: 'graph:update';
+			elements: unknown[];
+	  }
+	| {
+			/** Sidebar Panel (Fase 1.1, Epic A, task 3): selects/focuses one node's neighborhood without waiting for a fresh `graph:update`. No-op in the webview if `nodeId` isn't in the currently rendered graph. */
+			type: 'graph:select';
+			nodeId: string;
+	  };
 
 type WebviewToHostMessage = {
 	type: 'graph:ready';
@@ -64,6 +72,11 @@ export class GraphPanel implements vscode.Disposable {
 		return GraphPanel.current;
 	}
 
+	/** Syncs the currently open graph panel's selection to `nodeId` (Sidebar Panel, Epic A task 3), e.g. when a tree item is clicked. No-op when no panel is open. */
+	static selectNode(nodeId: string): void {
+		GraphPanel.current?.postSelect(nodeId);
+	}
+
 	get webview(): vscode.Webview {
 		return this.panel.webview;
 	}
@@ -102,6 +115,11 @@ export class GraphPanel implements vscode.Disposable {
 			elements: toCytoscapeElements(this.store.getGraph())
 		};
 		void this.panel.webview.postMessage(update);
+	}
+
+	private postSelect(nodeId: string): void {
+		const select: HostToWebviewMessage = { type: 'graph:select', nodeId };
+		void this.panel.webview.postMessage(select);
 	}
 
 	private renderHtml(): string {

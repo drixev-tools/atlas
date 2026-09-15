@@ -7,9 +7,14 @@
 // the "Calculate Impact" command (Epic 8) in ./impact, the intent form and
 // Proposed Graph orchestration behind the "Design Project" command (Epic 9)
 // in ./designProject, and the webview's own client-side script (bundled
-// separately, see esbuild.js) in ./webview/main.ts.
+// separately, see esbuild.js) in ./webview/main.ts. The Activity Bar Tree
+// View sidebar (Fase 1.1, Epic A) has its pure files/modules/symbols
+// tree-building logic in ./sidebarData and its `vscode.TreeDataProvider`/
+// registration in ./sidebarView.
 export * from './graphData';
 export * from './graphPanel';
 export * from './analyzeWorkspace';
 export * from './impact';
 export * from './designProject';
+export * from './sidebarData';
+export * from './sidebarView';

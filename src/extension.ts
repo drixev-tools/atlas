@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { AnthropicClaudeDesignClient, AuthenticationError, ensureAnthropicApiKey, SecretStorageApiKeyStore } from './design';
 import { GitStatusProvider } from './core/gitStatus';
+import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
 import { ProjectGraphStore } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
@@ -13,11 +14,13 @@ import {
 	DesignProjectResult,
 	designProject,
 	DESIGN_PROJECT_COMMAND,
-	GraphPanel
+	GraphPanel,
+	OPEN_ARCHITECTURE_COMMAND,
+	ProjectGraphTreeProvider,
+	registerSidebar
 } from './ui';
 
-export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
-export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND };
+export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND };
 
 const ANALYZE_NOW_ACTION = 'Analyze Workspace';
 
@@ -28,6 +31,13 @@ const ANALYZE_NOW_ACTION = 'Analyze Workspace';
  */
 let gitStatusProvider: GitStatusProvider | undefined;
 
+/**
+ * Sidebar Panel's Tree View provider (Fase 1.1, Epic A), refreshed after any
+ * command that changes the Project Graph (Analyze Workspace, Design Project)
+ * so the tree doesn't go stale. `undefined` until `activate()` registers it.
+ */
+let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
+
 export function activate(context: vscode.ExtensionContext): void {
 	console.log('Agent Graph extension activated');
 
@@ -37,10 +47,16 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context)),
 		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => runDesignProjectCommand(context))
 	);
+
+	sidebarTreeProvider = registerSidebar(context, {
+		rootDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+		dbPath: resolveGraphDbPath(context)
+	});
 }
 
 export function deactivate(): void {
 	gitStatusProvider = undefined;
+	sidebarTreeProvider = undefined;
 }
 
 /**
@@ -51,6 +67,8 @@ export function deactivate(): void {
  * `vscode`-free orchestration this wraps.
  */
 async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'analyzeWorkspace');
+
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before analyzing it.');
@@ -70,6 +88,7 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 					dbPath: resolveGraphDbPath(context),
 					onProgress: (message) => progress.report({ message })
 				});
+				await sidebarTreeProvider?.refresh();
 				void vscode.window.showInformationMessage(
 					`Project Graph: analyzed workspace — ${result.nodeCount} nodes, ${result.edgeCount} edges.`
 				);
@@ -91,6 +110,8 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
  * hasn't been analyzed yet.
  */
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'openArchitecture');
+
 	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
 	const isEmpty = store.getGraph().nodes.length === 0;
 	GraphPanel.createOrShow(context.extensionUri, store);
@@ -119,6 +140,8 @@ async function promptToAnalyzeWorkspace(context: vscode.ExtensionContext): Promi
  * orchestration this wraps.
  */
 async function runCalculateImpactCommand(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'calculateImpact');
+
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before calculating impact.');
@@ -199,6 +222,8 @@ const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';
  * this wraps once intent and API key are in hand.
  */
 async function runDesignProjectCommand(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'designProject');
+
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
 		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before designing a project.');
@@ -232,6 +257,7 @@ async function runDesignProjectCommand(context: vscode.ExtensionContext): Promis
 					claudeClient: new AnthropicClaudeDesignClient(apiKey),
 					onProgress: (message) => progress.report({ message })
 				});
+				await sidebarTreeProvider?.refresh();
 				await presentDesignProjectResult(result);
 			} catch (error) {
 				if (error instanceof AuthenticationError) {
@@ -270,4 +296,14 @@ async function presentDesignProjectResult(result: DesignProjectResult): Promise<
 function resolveGraphDbPath(context: vscode.ExtensionContext): string | undefined {
 	const storageUri = context.storageUri ?? context.globalStorageUri;
 	return storageUri ? path.join(storageUri.fsPath, 'project-graph.db') : undefined;
+}
+
+/**
+ * Bumps a local, offline usage counter (Epic 11) in `context.globalState` —
+ * VS Code's own per-install `Memento` storage, never transmitted anywhere by
+ * this extension. Fire-and-forget: a command's usage count is never allowed
+ * to hold up or fail the command itself.
+ */
+function recordUsage(context: vscode.ExtensionContext, event: UsageMetricEvent): void {
+	void new MementoUsageMetricsStore(context.globalState).record(event);
 }
