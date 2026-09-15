@@ -251,7 +251,8 @@ async function runDesignProjectCommand(context: vscode.ExtensionContext): Promis
 
 async function presentDesignProjectResult(result: DesignProjectResult): Promise<void> {
 	const choice = await vscode.window.showInformationMessage(
-		`Project Graph: proposed architecture ready — ${result.nodeCount} node(s), ${result.edgeCount} edge(s). Open the graph to review it.`,
+		`Project Graph: proposed architecture ready — ${result.nodeCount} node(s), ${result.edgeCount} edge(s), ` +
+			`${result.matchedNodeCount} already in the code. Open the graph to review it.`,
 		OPEN_ARCHITECTURE_ACTION
 	);
 	if (choice === OPEN_ARCHITECTURE_ACTION) {

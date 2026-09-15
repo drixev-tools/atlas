@@ -144,11 +144,34 @@ export class GraphPanel implements vscode.Disposable {
 			opacity: 0.7;
 			text-align: center;
 		}
+		#status-legend {
+			position: absolute;
+			bottom: 8px;
+			left: 8px;
+			font-size: 11px;
+			opacity: 0.85;
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+		#status-legend .swatch {
+			display: inline-block;
+			width: 10px;
+			height: 10px;
+			margin-right: 6px;
+			border-radius: 2px;
+			vertical-align: middle;
+		}
 	</style>
 </head>
 <body>
 	<div id="cy"></div>
 	<div id="empty-state" hidden>No nodes to display yet. Run "Project Graph: Analyze Workspace" first.</div>
+	<div id="status-legend">
+		<span><span class="swatch" style="background:#4a90d9;"></span>Observed</span>
+		<span><span class="swatch" style="background:#4a90d9;border:2px dashed #b18cf2;"></span>Proposed only</span>
+		<span><span class="swatch" style="background:#4a90d9;border:2px solid #4caf50;"></span>Matched</span>
+	</div>
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

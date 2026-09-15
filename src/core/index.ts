@@ -7,7 +7,8 @@
 // command (Epic 8) lives in ./impact, the test<->code relation it also needs
 // in ./testLinks, and the vscode.git integration backing its default target
 // set in ./gitStatus (types for the extension API it talks to in
-// ./gitExtensionApi).
+// ./gitExtensionApi). The Proposed-vs-Observed matching algorithm and status
+// annotation (Epic 10) live in ./comparison.
 export * from './schema';
 export * from './database';
 export * from './store';
@@ -18,3 +19,4 @@ export * from './impact';
 export * from './testLinks';
 export * from './gitExtensionApi';
 export * from './gitStatus';
+export * from './comparison';

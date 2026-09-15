@@ -4,9 +4,12 @@
 // (tasks 2-4, see ../design). `designProject` is the pure orchestration the
 // command (task 5, registered in ../extension.ts) wraps with progress
 // reporting and error/completion messages, the same split ../ui/analyzeWorkspace
-// and ../ui/impact use.
+// and ../ui/impact use. Updating the store also reconciles the new proposal
+// against the Observed Graph already there (Epic 10, see ../core/comparison),
+// so parts of it that already exist in the code come back tagged `matched`
+// instead of `proposed_only`.
 import * as vscode from 'vscode';
-import { populateProposedGraph } from '../core/populate';
+import { reconcileProposedGraph } from '../core/comparison';
 import { ProjectGraphStore } from '../core/store';
 import { ClaudeDesignClient, ProjectIntent, ProjectStack, buildProposedGraph } from '../design';
 
@@ -24,18 +27,24 @@ export interface DesignProjectOptions {
 }
 
 export interface DesignProjectResult {
+	/** Total nodes/edges in the proposal Claude returned, matched or not. */
 	nodeCount: number;
 	edgeCount: number;
+	/** How many of those already exist in the Observed Graph (Epic 10 comparison). */
+	matchedNodeCount: number;
+	matchedEdgeCount: number;
 }
 
 /**
- * Asks Claude to propose an architecture for `intent` and replaces the
- * Project Graph store's Proposed Graph (only the `proposed_only` slice —
- * see `populateProposedGraph`) with the result. Kept free of any `vscode`
- * dependency, like `analyzeWorkspace.ts`, so it can be exercised directly in
- * tests with a fake `claudeClient`; the command registered in `extension.ts`
- * is a thin wrapper that collects `intent`, resolves the real API key and
- * Claude client, and presents the result.
+ * Asks Claude to propose an architecture for `intent`, replaces the Project
+ * Graph store's Proposed Graph with the result, and reconciles it against
+ * the Observed Graph already there (`reconcileProposedGraph`, Epic 10) so
+ * parts of the proposal that already exist in the code are tagged `matched`
+ * rather than `proposed_only`. Kept free of any `vscode` dependency, like
+ * `analyzeWorkspace.ts`, so it can be exercised directly in tests with a
+ * fake `claudeClient`; the command registered in `extension.ts` is a thin
+ * wrapper that collects `intent`, resolves the real API key and Claude
+ * client, and presents the result.
  */
 export async function designProject(options: DesignProjectOptions): Promise<DesignProjectResult> {
 	const { rootDir, dbPath, intent, claudeClient, onProgress } = options;
@@ -49,12 +58,16 @@ export async function designProject(options: DesignProjectOptions): Promise<Desi
 	onProgress?.('Updating Project Graph...');
 	const store = await ProjectGraphStore.open({ filePath: dbPath });
 	try {
-		populateProposedGraph(store, proposedGraph);
+		const comparison = reconcileProposedGraph(store, proposedGraph);
 		if (dbPath) {
 			store.save(dbPath);
 		}
-		const stored = store.getGraph({ status: 'proposed_only' });
-		return { nodeCount: stored.nodes.length, edgeCount: stored.edges.length };
+		return {
+			nodeCount: proposedGraph.nodes.length,
+			edgeCount: proposedGraph.edges.length,
+			matchedNodeCount: comparison.matchedNodeCount,
+			matchedEdgeCount: comparison.matchedEdgeCount
+		};
 	} finally {
 		store.close();
 	}

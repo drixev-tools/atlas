@@ -53,6 +53,29 @@ const style: cytoscape.StylesheetJsonBlock[] = [
 			shape: 'diamond'
 		}
 	},
+	// Proposed vs Observed (Epic 10): `status` distinguishes code the pipelines
+	// actually found (`observed_only`, the plain node/edge style above) from a
+	// Design Project proposal not yet built (`proposed_only`, dashed/ghosted)
+	// and a proposal that turned out to already exist in the code (`matched`,
+	// highlighted). Declared after the kind-based rules above (background
+	// color/shape stay kind-driven) but before `node:selected`/`edge:selected`
+	// so selection is always the most prominent state on screen.
+	{
+		selector: 'node[status = "proposed_only"]',
+		style: {
+			'border-width': 2,
+			'border-color': '#b18cf2',
+			'border-style': 'dashed',
+			'background-opacity': 0.35
+		}
+	},
+	{
+		selector: 'node[status = "matched"]',
+		style: {
+			'border-width': 2,
+			'border-color': '#4caf50'
+		}
+	},
 	{
 		selector: 'node:selected',
 		style: {
@@ -69,6 +92,21 @@ const style: cytoscape.StylesheetJsonBlock[] = [
 			'target-arrow-shape': 'triangle',
 			'curve-style': 'bezier',
 			opacity: 0.6
+		}
+	},
+	{
+		selector: 'edge[status = "proposed_only"]',
+		style: {
+			'line-color': '#b18cf2',
+			'target-arrow-color': '#b18cf2',
+			'line-style': 'dashed'
+		}
+	},
+	{
+		selector: 'edge[status = "matched"]',
+		style: {
+			'line-color': '#4caf50',
+			'target-arrow-color': '#4caf50'
 		}
 	},
 	{
