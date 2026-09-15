@@ -5,7 +5,7 @@ export default typescriptEslint.config(
 		ignores: ['dist/**', 'out/**', 'node_modules/**', '.vscode-test/**']
 	},
 	{
-		files: ['**/*.ts'],
+		files: ['**/*.ts', '**/*.tsx'],
 		languageOptions: {
 			parser: typescriptEslint.parser,
 			ecmaVersion: 2022,

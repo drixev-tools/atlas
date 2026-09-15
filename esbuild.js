@@ -39,14 +39,31 @@ async function main() {
 		logLevel: 'silent',
 		plugins: [esbuildProblemMatcherPlugin]
 	});
-	// The Cytoscape.js graph webview this used to also bundle (Epic 6) was
-	// retired in Fase 1.2, Epic D; a webview build step returns once the
-	// React Flow rebuild (Epic F) adds one back.
+	// Runs inside the graph webview's own browser context (Epic 6, rebuilt on
+	// React Flow in Fase 1.2, Epic F, after the Cytoscape.js version was
+	// retired in Epic D), so it's bundled fully standalone — React, React
+	// Flow, dagre, and the CSS `main.tsx` imports included — rather than
+	// treated like a Node dependency of the extension host. esbuild's native
+	// CSS bundling (triggered by that CSS import) emits `main.css` next to
+	// `main.js` without any extra plugin/loader config.
+	const webviewCtx = await esbuild.context({
+		entryPoints: ['src/ui/webview/main.tsx'],
+		bundle: true,
+		format: 'iife',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/ui/webview/main.js',
+		logLevel: 'silent',
+		plugins: [esbuildProblemMatcherPlugin]
+	});
+
 	if (watch) {
-		await extensionCtx.watch();
+		await Promise.all([extensionCtx.watch(), webviewCtx.watch()]);
 	} else {
-		await extensionCtx.rebuild();
-		await extensionCtx.dispose();
+		await Promise.all([extensionCtx.rebuild(), webviewCtx.rebuild()]);
+		await Promise.all([extensionCtx.dispose(), webviewCtx.dispose()]);
 	}
 }
 

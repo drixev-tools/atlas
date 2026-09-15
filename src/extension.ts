@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { AnthropicClaudeDesignClient, AuthenticationError, ensureAnthropicApiKey, SecretStorageApiKeyStore } from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
+import { ProjectGraphStore } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
@@ -13,6 +14,7 @@ import {
 	DesignProjectResult,
 	designProject,
 	DESIGN_PROJECT_COMMAND,
+	GraphPanel,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
 	registerSidebar
@@ -98,19 +100,18 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 }
 
 /**
- * "Project Graph: Open Architecture" — the Cytoscape.js graph viewer it used
- * to open (Epic 6) was retired in Fase 1.2, Epic D: Cytoscape is gone from
- * the codebase and the view has no replacement yet. The command stays
- * registered (so existing shortcuts/menu entries and other commands that
- * invoke it, e.g. "Design Project"'s follow-up prompt, keep working) but is
- * disabled until the React Flow rebuild (Epic F) lands.
+ * "Project Graph: Open Architecture" — opens the React Flow graph panel
+ * (`../ui/graphPanel`), rebuilt in Fase 1.2, Epic F after the Cytoscape.js
+ * viewer it replaces (Epic 6) was retired in Epic D. Reveals and refreshes
+ * the existing panel if one is already open, otherwise creates it; either
+ * way it (re)focuses on the active editor's file and that file's direct
+ * relations, per `GraphPanel`'s own `graph:update` handling.
  */
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'openArchitecture');
 
-	void vscode.window.showInformationMessage(
-		'Project Graph: the architecture view is being rebuilt and is temporarily unavailable — pending the React Flow rework.'
-	);
+	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	GraphPanel.createOrShow(context.extensionUri, store);
 }
 
 /**

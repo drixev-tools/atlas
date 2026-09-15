@@ -4,16 +4,18 @@
 // files/modules/symbols navigation tree built from the Project Graph Core.
 // The pure file/symbol tree-building logic lives in ./sidebarData; this
 // module owns everything `vscode`-specific: `TreeItem` rendering, the
-// `TreeView` itself, and syncing a click to the editor (task 3). It no
-// longer also syncs selection into a graph view — the Cytoscape.js webview
-// that used to receive it was retired in Fase 1.2, Epic D; that sync will
-// come back once the React Flow rebuild (Epic F) lands.
+// `TreeView` itself, and syncing a click to the editor and to whichever
+// `GraphPanel` (./graphPanel) is currently open (task 3) — that sync was
+// dropped when the Cytoscape.js webview it targeted was retired in Fase 1.2,
+// Epic D, and comes back here now that the React Flow rebuild (Epic F)
+// gives it a panel to sync to again.
 import * as vscode from 'vscode';
 import { NodeKind } from '../pipelines/model';
 import { ProjectGraphStore, StoredNode } from '../core/store';
 import { ANALYZE_WORKSPACE_COMMAND } from './analyzeWorkspace';
 import { CALCULATE_IMPACT_COMMAND } from './impact';
 import { OPEN_ARCHITECTURE_COMMAND } from './architecture';
+import { GraphPanel } from './graphPanel';
 import { buildProjectFileTree, SidebarTreeNode } from './sidebarData';
 
 export const SIDEBAR_VIEW_ID = 'agentGraph.explorer';
@@ -138,21 +140,27 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 	}
 }
 
-/** Task 3: clicking a tree item opens its file in the editor, revealing its exact range for a symbol. A no-op for a node with no `filePath` (e.g. an external module). */
+/**
+ * Task 3: clicking a tree item opens its file in the editor (revealing its
+ * exact range for a symbol) and syncs selection into whichever `GraphPanel`
+ * is currently open, via the same `postMessage` bridge `graphPanel.ts` uses
+ * for its own graph updates. Opening the file is a no-op for a node with no
+ * `filePath` (e.g. an external module); the graph panel sync still runs.
+ */
 export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
-	if (!node.filePath) {
-		return;
+	if (node.filePath) {
+		const document = await vscode.workspace.openTextDocument(node.filePath);
+		const selection = node.range
+			? new vscode.Range(
+					node.range.startLine - 1,
+					node.range.startColumn - 1,
+					node.range.endLine - 1,
+					node.range.endColumn - 1
+			  )
+			: undefined;
+		await vscode.window.showTextDocument(document, { preview: true, selection });
 	}
-	const document = await vscode.workspace.openTextDocument(node.filePath);
-	const selection = node.range
-		? new vscode.Range(
-				node.range.startLine - 1,
-				node.range.startColumn - 1,
-				node.range.endLine - 1,
-				node.range.endColumn - 1
-		  )
-		: undefined;
-	await vscode.window.showTextDocument(document, { preview: true, selection });
+	GraphPanel.selectNode(node.id);
 }
 
 /** Registers the Activity Bar tree view, its refresh/select commands, and triggers the initial load. Everything it creates is pushed onto `context.subscriptions`. */
