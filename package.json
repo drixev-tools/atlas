@@ -59,6 +59,12 @@
           "id": "agentGraph.explorer",
           "name": "Project Graph",
           "icon": "media/activity-bar-icon.svg"
+        },
+        {
+          "id": "agentGraph.settings",
+          "name": "AI Settings",
+          "type": "webview",
+          "icon": "media/activity-bar-icon.svg"
         }
       ]
     },
@@ -70,6 +76,26 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "Agent Graph",
+      "properties": {
+        "agentGraph.claudeModel": {
+          "type": "string",
+          "enum": [
+            "claude-opus-5",
+            "claude-sonnet-5",
+            "claude-haiku-4-5"
+          ],
+          "enumDescriptions": [
+            "Claude Opus 5 (most capable)",
+            "Claude Sonnet 5 (balanced, default)",
+            "Claude Haiku 4.5 (fastest)"
+          ],
+          "default": "claude-sonnet-5",
+          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, and upcoming Impact/Sequence Diagram views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
+        }
+      }
     }
   },
   "scripts": {

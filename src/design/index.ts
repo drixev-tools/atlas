@@ -6,8 +6,12 @@
 // ../core/populate persists as the Proposed Graph. The "Project Graph:
 // Design Project" command itself (intent form, progress, messaging) lives in
 // ../ui/designProject, matching where the other commands' vscode-facing
-// wiring lives (../ui/analyzeWorkspace, ../ui/impact).
+// wiring lives (../ui/analyzeWorkspace, ../ui/impact). ./settings adds the
+// shared Claude settings (API key + model) infrastructure from Fase 1.2,
+// Epic G, which the sidebar Settings view (../ui/settingsView) and Design
+// Project both build on.
 export * from './model';
 export * from './apiKey';
 export * from './claudeClient';
 export * from './proposedGraph';
+export * from './settings';

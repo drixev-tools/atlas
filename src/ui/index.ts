@@ -13,7 +13,10 @@
 // `vscode.TreeDataProvider`/registration in ./sidebarView. The workflow-
 // relevance filter/reroute the graph panel renders (Fase 1.2, Epic E) lives
 // in ./graphFilter, and the default-focus/progressive-expansion logic behind
-// its React Flow view in ./graphFocus and ./graphExpansion.
+// its React Flow view in ./graphFocus and ./graphExpansion. The AI Settings
+// Webview View (Fase 1.2, Epic G) — API key + Claude model, shared with
+// Design Project and the future Impact/Sequence Diagram views — lives in
+// ./settingsView.
 export * from './architecture';
 export * from './graphPanel';
 export * from './graphFocus';
@@ -25,3 +28,4 @@ export * from './impact';
 export * from './designProject';
 export * from './sidebarData';
 export * from './sidebarView';
+export * from './settingsView';

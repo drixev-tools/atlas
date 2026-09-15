@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { AnthropicClaudeDesignClient, AuthenticationError, ensureAnthropicApiKey, SecretStorageApiKeyStore } from './design';
+import { AnthropicClaudeDesignClient, AuthenticationError, resolveClaudeSettings, SecretStorageApiKeyStore, VsCodeClaudeSettingsStore } from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
 import { ProjectGraphStore } from './core/store';
@@ -14,9 +14,11 @@ import {
 	DesignProjectResult,
 	designProject,
 	DESIGN_PROJECT_COMMAND,
+	FOCUS_SETTINGS_VIEW_COMMAND,
 	GraphPanel,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
+	registerSettingsView,
 	registerSidebar
 } from './ui';
 
@@ -50,6 +52,8 @@ export function activate(context: vscode.ExtensionContext): void {
 		rootDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
 		dbPath: resolveGraphDbPath(context)
 	});
+
+	registerSettingsView(context, new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets)));
 }
 
 export function deactivate(): void {
@@ -195,13 +199,19 @@ function impactQuickPickItem(filePath: string, icon: string, description: string
 
 const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';
 
+const OPEN_AI_SETTINGS_ACTION = 'Open AI Settings';
+
 /**
  * "Project Graph: Design Project" — collects intent for a new project or
  * feature (structured fields plus free text, see `collectProjectIntent`),
- * resolves the user's Anthropic API key from SecretStorage (prompting for it
- * the first time), and asks Claude to turn that intent into a Proposed
- * Graph. See `designProject` for the underlying, `vscode`-free orchestration
- * this wraps once intent and API key are in hand.
+ * resolves the Anthropic API key and Claude model from the shared
+ * `ClaudeSettingsStore` (Fase 1.2, Epic G; ../design/settings), and asks
+ * Claude to turn that intent into a Proposed Graph. If no API key is
+ * configured yet, this points the user at the AI Settings sidebar view
+ * (../ui/settingsView) instead of prompting inline — that view is now the
+ * only place the key is entered. See `designProject` for the underlying,
+ * `vscode`-free orchestration this wraps once intent and settings are in
+ * hand.
  */
 async function runDesignProjectCommand(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'designProject');
@@ -217,10 +227,10 @@ async function runDesignProjectCommand(context: vscode.ExtensionContext): Promis
 		return;
 	}
 
-	const apiKeys = new SecretStorageApiKeyStore(context.secrets);
-	const apiKey = await ensureAnthropicApiKey(apiKeys);
-	if (!apiKey) {
-		void vscode.window.showErrorMessage('Project Graph: an Anthropic API key is required to design a project.');
+	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
+	const settings = await resolveClaudeSettings(claudeSettings);
+	if (!settings) {
+		await promptToOpenAiSettings('an Anthropic API key is required to design a project');
 		return;
 	}
 
@@ -236,17 +246,15 @@ async function runDesignProjectCommand(context: vscode.ExtensionContext): Promis
 					rootDir: folder.uri.fsPath,
 					dbPath: resolveGraphDbPath(context),
 					intent,
-					claudeClient: new AnthropicClaudeDesignClient(apiKey),
+					claudeClient: new AnthropicClaudeDesignClient(settings.apiKey, settings.model),
 					onProgress: (message) => progress.report({ message })
 				});
 				await sidebarTreeProvider?.refresh();
 				await presentDesignProjectResult(result);
 			} catch (error) {
 				if (error instanceof AuthenticationError) {
-					await apiKeys.delete();
-					void vscode.window.showErrorMessage(
-						'Project Graph: Anthropic rejected the stored API key — it has been cleared, run "Design Project" again to enter a new one.'
-					);
+					await claudeSettings.clearApiKey();
+					await promptToOpenAiSettings('Anthropic rejected the stored API key — it has been cleared');
 					return;
 				}
 				void vscode.window.showErrorMessage(
@@ -255,6 +263,17 @@ async function runDesignProjectCommand(context: vscode.ExtensionContext): Promis
 			}
 		}
 	);
+}
+
+/** Directs the user to the AI Settings sidebar view (../ui/settingsView) to configure/re-configure the Anthropic API key, e.g. after `promptToOpenAiSettings`'s callers find none stored or a stored one gets rejected. */
+async function promptToOpenAiSettings(reason: string): Promise<void> {
+	const choice = await vscode.window.showErrorMessage(
+		`Project Graph: ${reason} — configure it in the AI Settings sidebar view.`,
+		OPEN_AI_SETTINGS_ACTION
+	);
+	if (choice === OPEN_AI_SETTINGS_ACTION) {
+		await vscode.commands.executeCommand(FOCUS_SETTINGS_VIEW_COMMAND);
+	}
 }
 
 async function presentDesignProjectResult(result: DesignProjectResult): Promise<void> {

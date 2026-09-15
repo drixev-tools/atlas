@@ -12,9 +12,11 @@ export { AuthenticationError };
 /**
  * The model id the system this extension runs under reports as its own
  * (`claude-sonnet-5`), confirmed against `@anthropic-ai/sdk`'s own `Model`
- * type union — i.e. a real, currently available model, not a guess. Kept as
- * a single constant rather than a user setting since Epic 9 doesn't call for
- * one; revisit if a later epic needs the choice to be configurable.
+ * type union — i.e. a real, currently available model, not a guess. Used as
+ * the fallback when no model has been configured yet; Fase 1.2, Epic G made
+ * the choice itself configurable via the Settings sidebar view and
+ * `../design/settings`' `ClaudeSettingsStore`, of which this is one of the
+ * options (`CLAUDE_MODEL_OPTIONS`).
  */
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
 

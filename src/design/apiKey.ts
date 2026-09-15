@@ -1,14 +1,18 @@
 // Anthropic API key management (Epic 9, task 2): the key is never stored in
 // workspace settings or the Project Graph database, only in VS Code's
-// SecretStorage (OS keychain-backed), and only entered once per install.
+// SecretStorage (OS keychain-backed). It used to be collected via a
+// `showInputBox` prompt the first time "Design Project" ran without one
+// stored; Fase 1.2, Epic G replaced that prompt with the sidebar Settings
+// view (../ui/settingsView, via ./settings' `ClaudeSettingsStore`), which
+// reads and writes through the same `ApiKeyStore` below.
 import * as vscode from 'vscode';
 
 export const ANTHROPIC_API_KEY_SECRET_KEY = 'agentGraph.anthropicApiKey';
 
 /**
- * What `ensureAnthropicApiKey` needs from secret storage, narrowed to an
- * interface — separate from the concrete `SecretStorageApiKeyStore` — so
- * tests can supply an in-memory fake instead of a real VS Code extension
+ * What `ClaudeSettingsStore` (./settings) needs from secret storage, narrowed
+ * to an interface — separate from the concrete `SecretStorageApiKeyStore` —
+ * so tests can supply an in-memory fake instead of a real VS Code extension
  * host, matching `GitStatusSource` (../core/gitStatus) and `ClaudeDesignClient`
  * (./claudeClient).
  */
@@ -32,40 +36,4 @@ export class SecretStorageApiKeyStore implements ApiKeyStore {
 	async delete(): Promise<void> {
 		await this.secrets.delete(ANTHROPIC_API_KEY_SECRET_KEY);
 	}
-}
-
-/**
- * Returns the Anthropic API key from `apiKeys`, prompting the user to paste
- * one — and persisting it back via `apiKeys.set` — the first time "Design
- * Project" runs without one already stored. Returns `undefined` if the user
- * cancels the prompt, in which case nothing is written to `apiKeys`.
- */
-export async function ensureAnthropicApiKey(
-	apiKeys: ApiKeyStore,
-	promptForApiKey: () => Promise<string | undefined> = defaultPromptForApiKey
-): Promise<string | undefined> {
-	const stored = await apiKeys.get();
-	if (stored) {
-		return stored;
-	}
-
-	const entered = await promptForApiKey();
-	if (!entered) {
-		return undefined;
-	}
-
-	await apiKeys.set(entered);
-	return entered;
-}
-
-async function defaultPromptForApiKey(): Promise<string | undefined> {
-	const value = await vscode.window.showInputBox({
-		title: 'Project Graph: Anthropic API Key',
-		prompt: 'Enter your Anthropic API key to design a proposed architecture with Claude. It is stored securely via VS Code SecretStorage, not in any workspace file.',
-		placeHolder: 'sk-ant-...',
-		password: true,
-		ignoreFocusOut: true,
-		validateInput: (input) => (input.trim().length === 0 ? 'An API key is required.' : undefined)
-	});
-	return value?.trim() || undefined;
 }
