@@ -15,3 +15,5 @@ export * from './diagramModel';
 export * from './moduleAggregation';
 export * from './diagramMetrics';
 export * from './entryPoints';
+export * from './diagramMermaid';
+export * from './pdfFromImage';

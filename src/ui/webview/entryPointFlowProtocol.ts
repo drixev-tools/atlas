@@ -14,11 +14,17 @@ export interface EntryPointFlowPayload {
 	truncatedNodeIds: string[];
 }
 
+export type EntryPointFlowExportFormat = 'svg' | 'png' | 'pdf';
+
 export type EntryPointFlowHostToWebviewMessage =
 	| { type: 'entryPointFlow:update'; entryPoints: EntryPoint[]; selectedEntryPointId: string; flow: EntryPointFlowPayload }
-	| { type: 'entryPointFlow:empty'; entryPoints: EntryPoint[] };
+	| { type: 'entryPointFlow:empty'; entryPoints: EntryPoint[] }
+	| { type: 'entryPointFlow:exportCapture'; format: EntryPointFlowExportFormat };
 
 export type EntryPointFlowWebviewToHostMessage =
 	| { type: 'entryPointFlow:ready' }
 	| { type: 'entryPointFlow:selectEntryPoint'; nodeId: string }
-	| { type: 'entryPointFlow:openNode'; nodeId: string };
+	| { type: 'entryPointFlow:openNode'; nodeId: string }
+	| { type: 'entryPointFlow:exportRequest'; expandedNodeIds: string[] }
+	| { type: 'entryPointFlow:exportCaptured'; format: EntryPointFlowExportFormat; payload: string; width: number; height: number }
+	| { type: 'entryPointFlow:exportCaptureFailed' };

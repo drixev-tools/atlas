@@ -13,18 +13,20 @@
 // level, which is exactly this view's original per-file focus+expand
 // behavior (unchanged, both in code and by design — the deepest level of
 // detail stays file-centered).
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type RefObject } from 'react';
 import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, type Edge, type NodeMouseHandler } from '@xyflow/react';
 import { DiagramModel } from '../../core/diagramModel';
 import { StoredGraph, StoredNode } from '../../core/store';
 import { countEdges, visibleGraph } from '../graphExpansion';
 import { computeDiagramLayout } from '../diagramLayout';
 import { computeHierarchicalLayout } from '../graphLayout';
-import { ArchitectureFilesPayload, ArchitectureLayerLabel, ArchitectureLayerPayload, HostToWebviewMessage } from './protocol';
+import { ArchitectureFilesPayload, ArchitectureLayerLabel, ArchitectureLayerPayload, ExportFormat, GraphExportView, HostToWebviewMessage } from './protocol';
 import { postToHost } from './vscodeApi';
 import { WorkflowNode, WorkflowFlowNode } from './WorkflowNode';
 import { DiagramCardData, DiagramCardFlowNode, DiagramCardNode, DiagramGroupData, DiagramGroupFlowNode, DiagramGroupNode } from './DiagramCardNode';
 import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS } from './visualSystem';
+import { ExportButton } from './ExportButton';
+import { captureViewExport } from './exportCapture';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 56;
@@ -49,6 +51,26 @@ export function App(): ReactElement {
 	const [focusNodeId, setFocusNodeId] = useState<string | undefined>(undefined);
 	const [expandedNodeIds, setExpandedNodeIds] = useState<ReadonlySet<string>>(new Set());
 	const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
+
+	const [isExporting, setIsExporting] = useState(false);
+	const diagramContainerRef = useRef<HTMLDivElement>(null);
+
+	const handleExportCapture = useCallback(async (format: ExportFormat) => {
+		const element = diagramContainerRef.current;
+		if (!element) {
+			postToHost({ type: 'graph:exportCaptureFailed' });
+			return;
+		}
+		setIsExporting(true);
+		try {
+			const captured = await captureViewExport(element, format);
+			postToHost({ type: 'graph:exportCaptured', format, ...captured });
+		} catch {
+			postToHost({ type: 'graph:exportCaptureFailed' });
+		} finally {
+			setIsExporting(false);
+		}
+	}, []);
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<HostToWebviewMessage>): void => {
@@ -77,12 +99,14 @@ export function App(): ReactElement {
 				}));
 			} else if (message.type === 'architecture:files') {
 				setFilesByGroupId((previous) => new Map(previous).set(message.payload.groupId, message.payload));
+			} else if (message.type === 'graph:exportCapture') {
+				void handleExportCapture(message.format);
 			}
 		};
 		window.addEventListener('message', handleMessage);
 		postToHost({ type: 'graph:ready' });
 		return () => window.removeEventListener('message', handleMessage);
-	}, []);
+	}, [handleExportCapture]);
 
 	const openGroupFiles = useCallback(
 		(groupId: string, label: string) => {
@@ -136,6 +160,18 @@ export function App(): ReactElement {
 		});
 	}, []);
 
+	const handleExportClick = useCallback(() => {
+		const view: GraphExportView =
+			viewMode === 'symbols'
+				? { level: 'symbols', focusNodeId: focusNodeId ?? '', expandedNodeIds: [...expandedNodeIds] }
+				: viewMode === 'files' && activeGroup
+					? { level: 'files', groupId: activeGroup.id }
+					: { level: 'layers' };
+		postToHost({ type: 'graph:exportRequest', view });
+	}, [viewMode, activeGroup, focusNodeId, expandedNodeIds]);
+
+	const exportToolbar = <ExportButton onClick={handleExportClick} disabled={isExporting} />;
+
 	if (viewMode === 'symbols') {
 		return (
 			<SymbolLevelView
@@ -146,6 +182,8 @@ export function App(): ReactElement {
 				onNodeClick={handleSymbolNodeClick}
 				onCloseDetail={() => setSelectedNodeId(undefined)}
 				breadcrumb={<Breadcrumb activeGroup={activeGroup} viewMode={viewMode} symbolLabel={graph?.nodes.find((n) => n.id === focusNodeId)?.name} onNavigate={navigateBreadcrumb(setViewMode, setActiveGroup, setSelectedCardId)} />}
+				exportToolbar={exportToolbar}
+				containerRef={diagramContainerRef}
 			/>
 		);
 	}
@@ -161,6 +199,8 @@ export function App(): ReactElement {
 				selectedId={selectedCardId}
 				onNodeClick={handleFileCardClick}
 				breadcrumb={<Breadcrumb activeGroup={activeGroup} viewMode={viewMode} onNavigate={navigateBreadcrumb(setViewMode, setActiveGroup, setSelectedCardId)} />}
+				exportToolbar={exportToolbar}
+				containerRef={diagramContainerRef}
 			/>
 		);
 	}
@@ -174,6 +214,8 @@ export function App(): ReactElement {
 			selectedId={selectedCardId}
 			onNodeClick={handleLayerCardClick}
 			breadcrumb={<Breadcrumb activeGroup={undefined} viewMode={viewMode} onNavigate={navigateBreadcrumb(setViewMode, setActiveGroup, setSelectedCardId)} />}
+			exportToolbar={exportToolbar}
+			containerRef={diagramContainerRef}
 		/>
 	);
 }
@@ -239,9 +281,11 @@ interface DiagramLevelViewProps {
 	selectedId: string | undefined;
 	onNodeClick: NodeMouseHandler;
 	breadcrumb: ReactElement;
+	exportToolbar: ReactElement;
+	containerRef: RefObject<HTMLDivElement>;
 }
 
-function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessage, selectedId, onNodeClick, breadcrumb }: DiagramLevelViewProps): ReactElement {
+function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessage, selectedId, onNodeClick, breadcrumb, exportToolbar, containerRef }: DiagramLevelViewProps): ReactElement {
 	const orderedNodes = useMemo(() => (model ? topologicallyOrderNodes(model) : []), [model]);
 
 	const boxes = useMemo(
@@ -318,13 +362,16 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 	return (
 		<div className="app-root">
 			{breadcrumb}
+			{exportToolbar}
 			{loadingMessage && <EmptyState message={loadingMessage} />}
 			{!loadingMessage && flowNodes.length === 0 && <EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />}
 			{!loadingMessage && flowNodes.length > 0 && (
-				<ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={DIAGRAM_NODE_TYPES} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
-					<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-					<Controls />
-				</ReactFlow>
+				<div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+					<ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={DIAGRAM_NODE_TYPES} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
+						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+						<Controls />
+					</ReactFlow>
+				</div>
 			)}
 		</div>
 	);
@@ -375,9 +422,11 @@ interface SymbolLevelViewProps {
 	onNodeClick: NodeMouseHandler;
 	onCloseDetail: () => void;
 	breadcrumb: ReactElement;
+	exportToolbar: ReactElement;
+	containerRef: RefObject<HTMLDivElement>;
 }
 
-function SymbolLevelView({ graph, focusNodeId, expandedNodeIds, selectedNodeId, onNodeClick, onCloseDetail, breadcrumb }: SymbolLevelViewProps): ReactElement {
+function SymbolLevelView({ graph, focusNodeId, expandedNodeIds, selectedNodeId, onNodeClick, onCloseDetail, breadcrumb, exportToolbar, containerRef }: SymbolLevelViewProps): ReactElement {
 	const visible = useMemo<StoredGraph>(() => {
 		if (!graph || !focusNodeId) {
 			return EMPTY_GRAPH;
@@ -440,23 +489,26 @@ function SymbolLevelView({ graph, focusNodeId, expandedNodeIds, selectedNodeId, 
 	return (
 		<div className="app-root">
 			{breadcrumb}
+			{exportToolbar}
 			{!graph && <EmptyState message="Loading Project Graph…" />}
 			{graph && visible.nodes.length === 0 && (
 				<EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />
 			)}
 			{graph && visible.nodes.length > 0 && (
-				<ReactFlow
-					key={focusNodeId}
-					nodes={rfNodes}
-					edges={rfEdges}
-					nodeTypes={WORKFLOW_NODE_TYPES}
-					onNodeClick={onNodeClick}
-					fitView
-					proOptions={{ hideAttribution: true }}
-				>
-					<Background />
-					<Controls />
-				</ReactFlow>
+				<div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+					<ReactFlow
+						key={focusNodeId}
+						nodes={rfNodes}
+						edges={rfEdges}
+						nodeTypes={WORKFLOW_NODE_TYPES}
+						onNodeClick={onNodeClick}
+						fitView
+						proOptions={{ hideAttribution: true }}
+					>
+						<Background />
+						<Controls />
+					</ReactFlow>
+				</div>
 			)}
 			{selectedNode && graph && (
 				<DetailPanel node={selectedNode} counts={countEdges(graph, selectedNode.id)} onClose={onCloseDetail} />

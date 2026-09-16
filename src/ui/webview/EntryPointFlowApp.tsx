@@ -8,16 +8,18 @@
 // existing dagre wrapper in its `LR` direction rather than a new algorithm —
 // branches and convergences fall out of laying out a DAG, nothing
 // flow-specific to add there.
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Background, Controls, MarkerType, ReactFlow, type Edge, type NodeMouseHandler } from '@xyflow/react';
 import { EntryPoint } from '../../core/entryPoints';
 import { EntryPointFlow } from '../../core/entryPointFlow';
 import { StoredNode } from '../../core/store';
 import { childIds, hasCollapsedChildren, visibleEntryPointFlow } from '../entryPointFlowExpansion';
 import { computeHierarchicalLayout } from '../graphLayout';
-import { EntryPointFlowHostToWebviewMessage, EntryPointFlowPayload } from './entryPointFlowProtocol';
+import { EntryPointFlowExportFormat, EntryPointFlowHostToWebviewMessage, EntryPointFlowPayload } from './entryPointFlowProtocol';
 import { FlowCardData, FlowCardFlowNode, FlowCardNode } from './FlowCardNode';
 import { postToHost } from './vscodeApi';
+import { ExportButton } from './ExportButton';
+import { captureViewExport } from './exportCapture';
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 76;
@@ -40,6 +42,26 @@ export function EntryPointFlowApp(): ReactElement {
 	const [expandedNodeIds, setExpandedNodeIds] = useState<ReadonlySet<string>>(new Set());
 	const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
 
+	const [isExporting, setIsExporting] = useState(false);
+	const diagramContainerRef = useRef<HTMLDivElement>(null);
+
+	const handleExportCapture = useCallback(async (format: EntryPointFlowExportFormat) => {
+		const element = diagramContainerRef.current;
+		if (!element) {
+			postToHost({ type: 'entryPointFlow:exportCaptureFailed' });
+			return;
+		}
+		setIsExporting(true);
+		try {
+			const captured = await captureViewExport(element, format);
+			postToHost({ type: 'entryPointFlow:exportCaptured', format, ...captured });
+		} catch {
+			postToHost({ type: 'entryPointFlow:exportCaptureFailed' });
+		} finally {
+			setIsExporting(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<EntryPointFlowHostToWebviewMessage>): void => {
 			const message = event.data;
@@ -53,12 +75,18 @@ export function EntryPointFlowApp(): ReactElement {
 				setFlow(undefined);
 				setExpandedNodeIds(new Set());
 				setSelectedNodeId(undefined);
+			} else if (message.type === 'entryPointFlow:exportCapture') {
+				void handleExportCapture(message.format);
 			}
 		};
 		window.addEventListener('message', handleMessage);
 		postToHost({ type: 'entryPointFlow:ready' });
 		return () => window.removeEventListener('message', handleMessage);
-	}, []);
+	}, [handleExportCapture]);
+
+	const handleExportClick = useCallback(() => {
+		postToHost({ type: 'entryPointFlow:exportRequest', expandedNodeIds: [...expandedNodeIds] });
+	}, [expandedNodeIds]);
 
 	const handleSelectEntryPoint = useCallback((nodeId: string) => {
 		postToHost({ type: 'entryPointFlow:selectEntryPoint', nodeId });
@@ -147,20 +175,23 @@ export function EntryPointFlowApp(): ReactElement {
 	return (
 		<div className="app-root">
 			<EntryPointToolbar entryPoints={entryPoints} selectedEntryPointId={flow?.entryPointId} onSelect={handleSelectEntryPoint} />
+			<ExportButton onClick={handleExportClick} disabled={isExporting} />
 			{!flow && <EmptyState message={entryPoints.length === 0 ? 'No entry points detected yet. Run "Analyze Workspace" first.' : 'Select an entry point to trace its call flow.'} />}
 			{flow && flowNodes.length > 0 && (
-				<ReactFlow
-					key={flow.entryPointId}
-					nodes={flowNodes}
-					edges={flowEdges}
-					nodeTypes={FLOW_NODE_TYPES}
-					onNodeClick={handleNodeClick}
-					fitView
-					proOptions={{ hideAttribution: true }}
-				>
-					<Background />
-					<Controls />
-				</ReactFlow>
+				<div ref={diagramContainerRef} style={{ width: '100%', height: '100%' }}>
+					<ReactFlow
+						key={flow.entryPointId}
+						nodes={flowNodes}
+						edges={flowEdges}
+						nodeTypes={FLOW_NODE_TYPES}
+						onNodeClick={handleNodeClick}
+						fitView
+						proOptions={{ hideAttribution: true }}
+					>
+						<Background />
+						<Controls />
+					</ReactFlow>
+				</div>
 			)}
 		</div>
 	);

@@ -7,9 +7,16 @@
 // serialized shape, unlike ./entryPointFlowProtocol's `EntryPointFlowPayload`.
 import { SequenceDiagramViewState } from '../sequenceDiagram';
 
-export type SequenceDiagramHostToWebviewMessage = { type: 'sequenceDiagram:state' } & SequenceDiagramViewState;
+export type SequenceDiagramExportFormat = 'svg' | 'png' | 'pdf';
+
+export type SequenceDiagramHostToWebviewMessage =
+	| ({ type: 'sequenceDiagram:state' } & SequenceDiagramViewState)
+	| { type: 'sequenceDiagram:exportCapture'; format: SequenceDiagramExportFormat };
 
 export type SequenceDiagramWebviewToHostMessage =
 	| { type: 'sequenceDiagram:ready' }
 	| { type: 'sequenceDiagram:openLifeline'; lifelineId: string }
-	| { type: 'sequenceDiagram:openAiSettings' };
+	| { type: 'sequenceDiagram:openAiSettings' }
+	| { type: 'sequenceDiagram:exportRequest' }
+	| { type: 'sequenceDiagram:exportCaptured'; format: SequenceDiagramExportFormat; payload: string; width: number; height: number }
+	| { type: 'sequenceDiagram:exportCaptureFailed' };

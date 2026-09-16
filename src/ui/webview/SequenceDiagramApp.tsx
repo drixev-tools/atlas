@@ -6,14 +6,16 @@
 // change with `aiGenerated`. Layout is ../sequenceDiagramLayout's pure
 // geometry; this component only turns that into React Flow nodes/edges and
 // wires the "open lifeline"/"open AI settings" affordances.
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Background, ReactFlow, type Edge } from '@xyflow/react';
 import { computeSequenceDiagramLayout } from '../sequenceDiagramLayout';
-import { SequenceDiagramHostToWebviewMessage } from './sequenceDiagramProtocol';
+import { SequenceDiagramExportFormat, SequenceDiagramHostToWebviewMessage } from './sequenceDiagramProtocol';
 import { SequenceLifelineData, SequenceLifelineFlowNode, SequenceLifelineNode } from './SequenceLifelineNode';
 import { DIAGRAM_EDGE_VISUALS } from './visualSystem';
 import { postToHost } from './vscodeApi';
 import { SequenceDiagramViewState } from '../sequenceDiagram';
+import { ExportButton } from './ExportButton';
+import { captureViewExport } from './exportCapture';
 
 const LIFELINE_WIDTH = 200;
 
@@ -22,17 +24,43 @@ const SEQUENCE_NODE_TYPES = { sequenceLifeline: SequenceLifelineNode };
 export function SequenceDiagramApp(): ReactElement {
 	const [state, setState] = useState<SequenceDiagramViewState | undefined>(undefined);
 
+	const [isExporting, setIsExporting] = useState(false);
+	const diagramContainerRef = useRef<HTMLDivElement>(null);
+
+	const handleExportCapture = useCallback(async (format: SequenceDiagramExportFormat) => {
+		const element = diagramContainerRef.current;
+		if (!element) {
+			postToHost({ type: 'sequenceDiagram:exportCaptureFailed' });
+			return;
+		}
+		setIsExporting(true);
+		try {
+			const captured = await captureViewExport(element, format);
+			postToHost({ type: 'sequenceDiagram:exportCaptured', format, ...captured });
+		} catch {
+			postToHost({ type: 'sequenceDiagram:exportCaptureFailed' });
+		} finally {
+			setIsExporting(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent<SequenceDiagramHostToWebviewMessage>): void => {
 			const message = event.data;
 			if (message.type === 'sequenceDiagram:state') {
 				const { type: _type, ...rest } = message;
 				setState(rest);
+			} else if (message.type === 'sequenceDiagram:exportCapture') {
+				void handleExportCapture(message.format);
 			}
 		};
 		window.addEventListener('message', handleMessage);
 		postToHost({ type: 'sequenceDiagram:ready' });
 		return () => window.removeEventListener('message', handleMessage);
+	}, [handleExportCapture]);
+
+	const handleExportClick = useCallback(() => {
+		postToHost({ type: 'sequenceDiagram:exportRequest' });
 	}, []);
 
 	const lifelineIds = useMemo(() => state?.lifelines.map((lifeline) => lifeline.id) ?? [], [state]);
@@ -112,17 +140,20 @@ export function SequenceDiagramApp(): ReactElement {
 	return (
 		<div className="app-root">
 			<SequenceSummary state={state} />
-			<ReactFlow
-				key={state.targetId}
-				nodes={flowNodes}
-				edges={flowEdges}
-				nodeTypes={SEQUENCE_NODE_TYPES}
-				nodesDraggable={false}
-				fitView
-				proOptions={{ hideAttribution: true }}
-			>
-				<Background />
-			</ReactFlow>
+			<ExportButton onClick={handleExportClick} disabled={isExporting} />
+			<div ref={diagramContainerRef} style={{ width: '100%', height: '100%' }}>
+				<ReactFlow
+					key={state.targetId}
+					nodes={flowNodes}
+					edges={flowEdges}
+					nodeTypes={SEQUENCE_NODE_TYPES}
+					nodesDraggable={false}
+					fitView
+					proOptions={{ hideAttribution: true }}
+				>
+					<Background />
+				</ReactFlow>
+			</div>
 		</div>
 	);
 }

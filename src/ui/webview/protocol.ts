@@ -27,6 +27,14 @@ export interface ArchitectureFilesPayload {
 	entryPointFileIds: string[];
 }
 
+export type ExportFormat = 'svg' | 'png' | 'pdf';
+
+/** The webview's current level in the "Open Architecture" panel, sent along with `graph:exportRequest` so the host can build a Markdown export that matches whatever's actually on screen, without tracking that navigation state itself. */
+export type GraphExportView =
+	| { level: 'layers' }
+	| { level: 'files'; groupId: string }
+	| { level: 'symbols'; focusNodeId: string; expandedNodeIds: string[] };
+
 export type HostToWebviewMessage =
 	| {
 			type: 'graph:update';
@@ -48,8 +56,16 @@ export type HostToWebviewMessage =
 	| {
 			type: 'architecture:files';
 			payload: ArchitectureFilesPayload;
+	  }
+	| {
+			/** Sent after the host's save dialog picked an `svg`/`png`/`pdf` destination for `graph:exportRequest` — the webview replies with `graph:exportCaptured`/`graph:exportCaptureFailed`. */
+			type: 'graph:exportCapture';
+			format: ExportFormat;
 	  };
 
 export type WebviewToHostMessage =
 	| { type: 'graph:ready' }
-	| { type: 'architecture:requestFiles'; groupId: string };
+	| { type: 'architecture:requestFiles'; groupId: string }
+	| { type: 'graph:exportRequest'; view: GraphExportView }
+	| { type: 'graph:exportCaptured'; format: ExportFormat; payload: string; width: number; height: number }
+	| { type: 'graph:exportCaptureFailed' };

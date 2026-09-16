@@ -8,9 +8,13 @@
 // entry-point switching, and progressive expansion happen entirely in the
 // webview (./webview/EntryPointFlowApp.tsx).
 import * as vscode from 'vscode';
+import { buildDiagramModel } from '../core/diagramModel';
+import { diagramModelToMermaidFlowchart, toMermaidMarkdown } from '../core/diagramMermaid';
 import { EntryPointFlow } from '../core/entryPointFlow';
 import { ProjectGraphStore } from '../core/store';
+import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
 import { buildEntryPointFlowViewData } from './entryPointFlow';
+import { visibleEntryPointFlow } from './entryPointFlowExpansion';
 import { EntryPointFlowHostToWebviewMessage, EntryPointFlowPayload, EntryPointFlowWebviewToHostMessage } from './webview/entryPointFlowProtocol';
 
 const VIEW_TYPE = 'agentGraph.entryPointFlowView';
@@ -24,6 +28,9 @@ export class EntryPointFlowPanel implements vscode.Disposable {
 
 	private readonly disposables: vscode.Disposable[] = [];
 	private disposed = false;
+
+	/** The save destination/format for an in-flight `entryPointFlow:exportRequest`, awaiting the webview's `entryPointFlow:exportCaptured` reply. */
+	private pendingExport: ExportDestination | undefined;
 
 	private constructor(
 		private readonly panel: vscode.WebviewPanel,
@@ -99,6 +106,13 @@ export class EntryPointFlowPanel implements vscode.Disposable {
 			void this.postFlow();
 		} else if (message?.type === 'entryPointFlow:openNode') {
 			void this.openNode(message.nodeId);
+		} else if (message?.type === 'entryPointFlow:exportRequest') {
+			void this.handleExportRequest(message.expandedNodeIds);
+		} else if (message?.type === 'entryPointFlow:exportCaptured') {
+			void this.handleExportCaptured(message.format, message.payload, message.width, message.height);
+		} else if (message?.type === 'entryPointFlow:exportCaptureFailed') {
+			this.pendingExport = undefined;
+			void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
 		}
 	}
 
@@ -122,6 +136,57 @@ export class EntryPointFlowPanel implements vscode.Disposable {
 			? new vscode.Range(node.range.startLine - 1, node.range.startColumn - 1, node.range.endLine - 1, node.range.endColumn - 1)
 			: undefined;
 		await vscode.window.showTextDocument(document, { preview: true, selection });
+	}
+
+	private async handleExportRequest(expandedNodeIds: readonly string[]): Promise<void> {
+		const destination = await pickExportDestination('entry-point-flow');
+		if (!destination) {
+			return;
+		}
+
+		if (destination.format === 'markdown') {
+			const markdown = this.buildExportMarkdown(expandedNodeIds);
+			if (markdown) {
+				await writeMarkdownExport(destination.uri, markdown);
+			}
+			return;
+		}
+
+		this.pendingExport = destination;
+		const message: EntryPointFlowHostToWebviewMessage = { type: 'entryPointFlow:exportCapture', format: destination.format };
+		void this.panel.webview.postMessage(message);
+	}
+
+	private async handleExportCaptured(format: 'svg' | 'png' | 'pdf', payload: string, width: number, height: number): Promise<void> {
+		const destination = this.pendingExport;
+		this.pendingExport = undefined;
+		if (!destination) {
+			return;
+		}
+		if (format === 'svg') {
+			await writeSvgExport(destination.uri, payload);
+		} else if (format === 'png') {
+			await writePngExport(destination.uri, payload);
+		} else {
+			await writePdfExportFromJpeg(destination.uri, payload, width, height);
+		}
+	}
+
+	private buildExportMarkdown(expandedNodeIds: readonly string[]): string | undefined {
+		const graph = this.store.getGraph();
+		const data = buildEntryPointFlowViewData(this.store, graph, this.selectedEntryPointId);
+		if (!data) {
+			return undefined;
+		}
+
+		const visible = visibleEntryPointFlow(data.flow, new Set(expandedNodeIds));
+		const visibleGraph = {
+			nodes: data.flow.nodes.filter((node) => visible.nodeIds.has(node.id)),
+			edges: data.flow.edges.filter((edge) => visible.edgeIds.has(edge.id))
+		};
+		const { model } = buildDiagramModel(visibleGraph);
+		const entryPointName = data.flow.nodes.find((node) => node.id === data.flow.entryPointId)?.name ?? data.flow.entryPointId;
+		return toMermaidMarkdown(`Entry Point Flow — ${entryPointName}`, diagramModelToMermaidFlowchart(model));
 	}
 
 	private renderHtml(): string {

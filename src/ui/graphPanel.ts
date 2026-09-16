@@ -8,6 +8,8 @@
 // hierarchical layout, focus, progressive expansion, level switching —
 // happens entirely in the webview script (`./webview/App.tsx`).
 import * as vscode from 'vscode';
+import { buildDiagramModel } from '../core/diagramModel';
+import { diagramModelToMermaidFlowchart, toMermaidMarkdown } from '../core/diagramMermaid';
 import { ProjectGraphStore, StoredGraph } from '../core/store';
 import { AnthropicClaudeLayerNamingClient, AuthenticationError, ClaudeSettingsStore, resolveClaudeSettings } from '../design';
 import {
@@ -18,9 +20,11 @@ import {
 	resolveCachedLayerLabels,
 	toLayerNamingTargets
 } from './architectureLayers';
+import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
 import { filterGraphForWorkflow } from './graphFilter';
 import { findInitialFocusNodeId } from './graphFocus';
-import { ArchitectureLayerLabel, HostToWebviewMessage, WebviewToHostMessage } from './webview/protocol';
+import { visibleGraph } from './graphExpansion';
+import { ArchitectureLayerLabel, GraphExportView, HostToWebviewMessage, WebviewToHostMessage } from './webview/protocol';
 
 const VIEW_TYPE = 'agentGraph.graphView';
 const VIEW_TITLE = 'Project Graph';
@@ -40,6 +44,9 @@ export class GraphPanel implements vscode.Disposable {
 
 	/** The architecture view's current leaf groups, keyed by group id, so `architecture:requestFiles` can look one up without recomputing the whole layer aggregation. Repopulated by every `postGraph()`. */
 	private groupsById = new Map<string, ArchitectureLayerGroup>();
+
+	/** The save destination/format for an in-flight `graph:exportRequest`, awaiting the webview's `graph:exportCaptured` reply. */
+	private pendingExport: ExportDestination | undefined;
 
 	private constructor(
 		private readonly panel: vscode.WebviewPanel,
@@ -118,6 +125,13 @@ export class GraphPanel implements vscode.Disposable {
 			void this.postGraph();
 		} else if (message?.type === 'architecture:requestFiles') {
 			this.postFiles(message.groupId);
+		} else if (message?.type === 'graph:exportRequest') {
+			void this.handleExportRequest(message.view);
+		} else if (message?.type === 'graph:exportCaptured') {
+			void this.handleExportCaptured(message.format, message.payload, message.width, message.height);
+		} else if (message?.type === 'graph:exportCaptureFailed') {
+			this.pendingExport = undefined;
+			void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
 		}
 	}
 
@@ -206,6 +220,69 @@ export class GraphPanel implements vscode.Disposable {
 	private postSelect(nodeId: string): void {
 		const select: HostToWebviewMessage = { type: 'graph:select', nodeId };
 		void this.panel.webview.postMessage(select);
+	}
+
+	/** Shows the save dialog for "Export" and, for `markdown`, writes it immediately from data already on hand; `svg`/`png`/`pdf` need the webview's own rendered view, so those ask it to capture (`graph:exportCapture`) and wait for `graph:exportCaptured`. */
+	private async handleExportRequest(view: GraphExportView): Promise<void> {
+		const destination = await pickExportDestination('project-graph');
+		if (!destination) {
+			return;
+		}
+
+		if (destination.format === 'markdown') {
+			const markdown = this.buildExportMarkdown(view);
+			if (markdown) {
+				await writeMarkdownExport(destination.uri, markdown);
+			}
+			return;
+		}
+
+		this.pendingExport = destination;
+		const message: HostToWebviewMessage = { type: 'graph:exportCapture', format: destination.format };
+		void this.panel.webview.postMessage(message);
+	}
+
+	private async handleExportCaptured(format: 'svg' | 'png' | 'pdf', payload: string, width: number, height: number): Promise<void> {
+		const destination = this.pendingExport;
+		this.pendingExport = undefined;
+		if (!destination) {
+			return;
+		}
+		if (format === 'svg') {
+			await writeSvgExport(destination.uri, payload);
+		} else if (format === 'png') {
+			await writePngExport(destination.uri, payload);
+		} else {
+			await writePdfExportFromJpeg(destination.uri, payload, width, height);
+		}
+	}
+
+	/** The Mermaid flowchart Markdown for whatever `view` the webview reports as currently showing — the layers/files levels straight from `./architectureLayers`, the symbol level rebuilt from the same `filterGraphForWorkflow`+`visibleGraph` pipeline `postGraph` uses. */
+	private buildExportMarkdown(view: GraphExportView): string | undefined {
+		const graph = this.store.getGraph();
+
+		if (view.level === 'layers') {
+			const rootDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			const layers = buildArchitectureLayerData(this.store, graph, rootDir);
+			return toMermaidMarkdown('Project Graph — Layered Architecture', diagramModelToMermaidFlowchart(layers.model));
+		}
+
+		if (view.level === 'files') {
+			const group = this.groupsById.get(view.groupId);
+			if (!group) {
+				return undefined;
+			}
+			const files = buildArchitectureFileLevelData(this.store, graph, group);
+			return toMermaidMarkdown(`Project Graph — ${group.folderLabel}`, diagramModelToMermaidFlowchart(files.model));
+		}
+
+		if (!view.focusNodeId) {
+			return undefined;
+		}
+		const workflowGraph = filterGraphForWorkflow(graph);
+		const visible = visibleGraph(workflowGraph, view.focusNodeId, new Set(view.expandedNodeIds));
+		const { model } = buildDiagramModel(visible);
+		return toMermaidMarkdown('Project Graph — Symbols', diagramModelToMermaidFlowchart(model));
 	}
 
 	private renderHtml(): string {

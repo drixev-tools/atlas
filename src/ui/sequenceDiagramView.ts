@@ -7,6 +7,8 @@
 // (../sequenceDiagram's view state), so opening a lifeline's file only needs
 // the `filePath`/`range` already carried on that state.
 import * as vscode from 'vscode';
+import { MermaidSequenceLifeline, MermaidSequenceStep, sequenceToMermaidDiagram, toMermaidMarkdown } from '../core/diagramMermaid';
+import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
 import { SequenceDiagramViewState } from './sequenceDiagram';
 import { FOCUS_SETTINGS_VIEW_COMMAND } from './settingsView';
 import { SequenceDiagramWebviewToHostMessage } from './webview/sequenceDiagramProtocol';
@@ -20,6 +22,9 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 
 	private readonly disposables: vscode.Disposable[] = [];
 	private disposed = false;
+
+	/** The save destination/format for an in-flight `sequenceDiagram:exportRequest`, awaiting the webview's `sequenceDiagram:exportCaptured` reply. */
+	private pendingExport: ExportDestination | undefined;
 
 	private constructor(private readonly panel: vscode.WebviewPanel, private readonly extensionUri: vscode.Uri, private state: SequenceDiagramViewState) {
 		this.panel.webview.html = this.renderHtml();
@@ -84,6 +89,16 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 			case 'sequenceDiagram:openLifeline':
 				void this.openLifeline(message.lifelineId);
 				return;
+			case 'sequenceDiagram:exportRequest':
+				void this.handleExportRequest();
+				return;
+			case 'sequenceDiagram:exportCaptured':
+				void this.handleExportCaptured(message.format, message.payload, message.width, message.height);
+				return;
+			case 'sequenceDiagram:exportCaptureFailed':
+				this.pendingExport = undefined;
+				void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
+				return;
 		}
 	}
 
@@ -97,6 +112,48 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 			? new vscode.Range(lifeline.range.startLine - 1, lifeline.range.startColumn - 1, lifeline.range.endLine - 1, lifeline.range.endColumn - 1)
 			: undefined;
 		await vscode.window.showTextDocument(document, { preview: true, selection });
+	}
+
+	private async handleExportRequest(): Promise<void> {
+		const destination = await pickExportDestination(`sequence-${this.state.targetName}`);
+		if (!destination) {
+			return;
+		}
+
+		if (destination.format === 'markdown') {
+			await writeMarkdownExport(destination.uri, this.buildExportMarkdown());
+			return;
+		}
+
+		this.pendingExport = destination;
+		void this.panel.webview.postMessage({ type: 'sequenceDiagram:exportCapture', format: destination.format });
+	}
+
+	private async handleExportCaptured(format: 'svg' | 'png' | 'pdf', payload: string, width: number, height: number): Promise<void> {
+		const destination = this.pendingExport;
+		this.pendingExport = undefined;
+		if (!destination) {
+			return;
+		}
+		if (format === 'svg') {
+			await writeSvgExport(destination.uri, payload);
+		} else if (format === 'png') {
+			await writePngExport(destination.uri, payload);
+		} else {
+			await writePdfExportFromJpeg(destination.uri, payload, width, height);
+		}
+	}
+
+	private buildExportMarkdown(): string {
+		const lifelines: MermaidSequenceLifeline[] = this.state.lifelines.map((lifeline) => ({ id: lifeline.id, label: lifeline.label }));
+		const participantsById = new Map(this.state.participants.map((participant) => [participant.id, participant] as const));
+		const steps: MermaidSequenceStep[] = this.state.steps.map((step) => ({
+			order: step.order,
+			fromLifelineId: participantsById.get(step.fromParticipantId)?.lifelineId ?? step.fromParticipantId,
+			toLifelineId: participantsById.get(step.toParticipantId)?.lifelineId ?? step.toParticipantId,
+			label: step.label
+		}));
+		return toMermaidMarkdown(`Sequence — ${this.state.targetName}`, sequenceToMermaidDiagram(lifelines, steps));
 	}
 
 	private postState(): void {
