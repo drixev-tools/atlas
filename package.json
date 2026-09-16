@@ -126,6 +126,7 @@
     "compile": "npm run check-types && npm run lint && node esbuild.js && node scripts/copy-python-server.js dist",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
+    "watch:python": "node scripts/copy-python-server.js dist",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && npm run lint && node esbuild.js --production && node scripts/copy-python-server.js dist",
     "compile-tests": "tsc -p . --outDir out && node scripts/copy-python-server.js out",
