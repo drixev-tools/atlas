@@ -15,12 +15,11 @@ import { ProjectGraphStore, StoredNode } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
+	applySequenceDiagramNarration,
 	buildEmptyImpactViewState,
-	buildErrorSequenceDiagramViewState,
 	buildFallbackExplanation,
+	buildFallbackSequenceDiagramViewState,
 	buildImpactViewState,
-	buildNoApiKeySequenceDiagramViewState,
-	buildSequenceDiagramViewState,
 	CalculateImpactResult,
 	CALCULATE_IMPACT_COMMAND,
 	calculateImpact,
@@ -40,7 +39,7 @@ import {
 	SHOW_SEQUENCE_DIAGRAM_COMMAND,
 	SidebarTreeNode,
 	toImpactSummaryInput,
-	toSequenceDiagramContextInput
+	toSequenceDiagramNarrationInput
 } from './ui';
 
 export {
@@ -257,13 +256,12 @@ async function presentImpactResult(context: vscode.ExtensionContext, result: Cal
 /**
  * "Show Sequence Diagram" — the sidebar tree's per-node context menu action
  * (function/file nodes only, see package.json's `view/item/context`
- * contribution). Builds the node's call context from the Project Graph
- * (../ui/sequenceDiagram's `loadSequenceContext`) and asks Claude to sketch a
- * sequence diagram from it, presented in the persistent
- * ../ui/sequenceDiagramView. There is no non-AI fallback — the diagram IS the
- * AI-generated artifact — so a missing/rejected API key instead shows a
- * message directing the user to the AI Settings sidebar view, mirroring how
- * `runDesignProjectCommand` handles the same case.
+ * contribution). Builds the node's real `calls`-edge chain from the Project
+ * Graph (../ui/sequenceDiagram's `loadSequenceContext`) into a diagram that's
+ * valid on its own — no API key required — then, when one is configured,
+ * asks Claude only to relabel its steps and write a summary, mirroring how
+ * `runCalculateImpactCommand` falls back to a non-AI explanation on a missing
+ * key or a failed call instead of blocking the view.
  */
 async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, element: SidebarTreeNode | undefined): Promise<void> {
 	if (!element || element.kind !== 'node' || (element.node.kind !== 'function' && element.node.kind !== 'file')) {
@@ -279,40 +277,30 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, e
 		return;
 	}
 
+	const panel = SequenceDiagramPanel.createOrShow(context.extensionUri, buildFallbackSequenceDiagramViewState(sequenceContext));
+
 	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
 	const settings = await resolveClaudeSettings(claudeSettings);
 	if (!settings) {
-		SequenceDiagramPanel.createOrShow(buildNoApiKeySequenceDiagramViewState(sequenceContext));
 		return;
 	}
 
-	await vscode.window.withProgress(
-		{
-			location: vscode.ProgressLocation.Notification,
-			title: `Project Graph: Generating sequence diagram for "${node.name}"`,
-			cancellable: false
-		},
-		async () => {
-			try {
-				const diagram = await new AnthropicClaudeSequenceDiagramClient(settings.apiKey, settings.model).generateSequenceDiagram(
-					toSequenceDiagramContextInput(sequenceContext)
-				);
-				SequenceDiagramPanel.createOrShow(buildSequenceDiagramViewState(sequenceContext, diagram));
-			} catch (error) {
-				if (error instanceof AuthenticationError) {
-					await claudeSettings.clearApiKey();
-					SequenceDiagramPanel.createOrShow(buildNoApiKeySequenceDiagramViewState(sequenceContext));
-					return;
-				}
-				SequenceDiagramPanel.createOrShow(
-					buildErrorSequenceDiagramViewState(
-						sequenceContext,
-						`Claude did not return a sequence diagram — ${error instanceof Error ? error.message : String(error)}`
-					)
-				);
-			}
+	try {
+		const narration = await new AnthropicClaudeSequenceDiagramClient(settings.apiKey, settings.model).narrateSequence(
+			toSequenceDiagramNarrationInput(sequenceContext)
+		);
+		panel.update(applySequenceDiagramNarration(sequenceContext, narration));
+	} catch (error) {
+		if (error instanceof AuthenticationError) {
+			await claudeSettings.clearApiKey();
+		} else {
+			void vscode.window.showWarningMessage(
+				`Project Graph: Claude narration failed, showing the non-AI sequence diagram instead — ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
 		}
-	);
+	}
 }
 
 /**

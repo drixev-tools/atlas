@@ -1,8 +1,9 @@
-// Claude integration for the AI-generated sequence diagram: turns the call
-// context ../core/sequenceContext computed from the Project Graph (via
-// ../ui/sequenceDiagram) into an ordered sequence of steps, using tool use
-// like ./claudeClient does for a proposed architecture — a structured result
-// is easier to render than free-form prose. Takes a narrow
+// Claude integration for the sequence diagram view's narration only: the
+// participants, lifelines, steps and their order are already fully
+// determined by ../core/sequenceContext's real `calls`-edge chain, so unlike
+// ./claudeClient's proposed architecture, Claude is never asked to invent
+// structure here — only to relabel each already-fixed step in nicer language
+// and write a short overall summary. Takes a narrow
 // `SequenceDiagramContextInput` instead of importing ../core/sequenceContext's
 // `SequenceContext` directly, keeping this design-layer module free of any
 // dependency on the core layer, like ./impactClient.
@@ -12,30 +13,29 @@ import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
 
 const MAX_OUTPUT_TOKENS = 1024;
 
-const RECORD_SEQUENCE_DIAGRAM_TOOL_NAME = 'record_sequence_diagram';
+const RECORD_SEQUENCE_NARRATION_TOOL_NAME = 'record_sequence_narration';
 
-export interface SequenceDiagramParticipant {
-	name: string;
-	kind: NodeKind;
-	filePath?: string;
+export interface SequenceDiagramStepInput {
+	order: number;
+	from: string;
+	to: string;
+	/** The step's non-AI default label, e.g. "calls foo" — what Claude is expected to improve on, not replace with something unrelated. */
+	defaultAction: string;
 }
 
 export interface SequenceDiagramContextInput {
-	target: SequenceDiagramParticipant;
-	siblings: SequenceDiagramParticipant[];
-	callers: SequenceDiagramParticipant[];
-	callees: SequenceDiagramParticipant[];
+	target: { name: string; kind: NodeKind };
+	steps: SequenceDiagramStepInput[];
 }
 
-export interface SequenceDiagramStep {
-	from: string;
-	to: string;
-	action: string;
+export interface SequenceDiagramStepLabel {
+	order: number;
+	label: string;
 }
 
-export interface SequenceDiagram {
+export interface SequenceDiagramNarration {
 	summary: string;
-	steps: SequenceDiagramStep[];
+	stepLabels: SequenceDiagramStepLabel[];
 }
 
 /**
@@ -46,7 +46,7 @@ export interface SequenceDiagram {
  * `ClaudeImpactClient` (./impactClient).
  */
 export interface ClaudeSequenceDiagramClient {
-	generateSequenceDiagram(context: SequenceDiagramContextInput): Promise<SequenceDiagram>;
+	narrateSequence(context: SequenceDiagramContextInput): Promise<SequenceDiagramNarration>;
 }
 
 export class AnthropicClaudeSequenceDiagramClient implements ClaudeSequenceDiagramClient {
@@ -56,71 +56,67 @@ export class AnthropicClaudeSequenceDiagramClient implements ClaudeSequenceDiagr
 		this.client = new Anthropic({ apiKey });
 	}
 
-	async generateSequenceDiagram(context: SequenceDiagramContextInput): Promise<SequenceDiagram> {
+	async narrateSequence(context: SequenceDiagramContextInput): Promise<SequenceDiagramNarration> {
 		const message = await this.client.messages.create({
 			model: this.model,
 			max_tokens: MAX_OUTPUT_TOKENS,
 			system: SYSTEM_PROMPT,
-			tools: [buildRecordSequenceDiagramTool()],
-			tool_choice: { type: 'tool', name: RECORD_SEQUENCE_DIAGRAM_TOOL_NAME },
+			tools: [buildRecordSequenceNarrationTool()],
+			tool_choice: { type: 'tool', name: RECORD_SEQUENCE_NARRATION_TOOL_NAME },
 			messages: [{ role: 'user', content: buildUserPrompt(context) }]
 		});
 
 		const toolUse = message.content.find(
-			(block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === RECORD_SEQUENCE_DIAGRAM_TOOL_NAME
+			(block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === RECORD_SEQUENCE_NARRATION_TOOL_NAME
 		);
 		if (!toolUse) {
-			throw new Error('Claude did not call the record_sequence_diagram tool.');
+			throw new Error('Claude did not call the record_sequence_narration tool.');
 		}
 
-		return parseSequenceDiagram(toolUse.input);
+		return parseSequenceDiagramNarration(toolUse.input);
 	}
 }
 
-const SYSTEM_PROMPT = `You are helping a developer understand how a specific function or file fits into a codebase's flow, by sketching a plausible sequence diagram for it.
+const SYSTEM_PROMPT = `You are helping a developer read a sequence diagram of a specific function or file's call chain in a codebase.
 
-You will be given the target function or file, other symbols declared in the same file, and its structural neighbors: files that import its file (likely callers) and files its file imports (likely callees). This is derived from import relationships, not a confirmed call graph — treat it as context to reason from, not as ground truth about which functions call which, and say so briefly in the summary if the flow is speculative. Stay grounded in the given names; never invent unrelated services, databases, or external systems.
+The participants, steps, and their order are already fixed, extracted directly from the codebase's real function calls — never add, remove, reorder, or rename them. You will be given each step's order index, its "from"/"to" participant names, and a generic default label (e.g. "calls foo").
 
-Call the record_sequence_diagram tool exactly once with a one-to-two sentence summary of the target's likely role in the flow, and an ordered list of 3-8 steps that best explain it (not an exhaustive trace). Each step is a "from" participant calling or returning to a "to" participant with a short "action" description. Use short, recognizable participant names and keep the same name for the same participant across steps.`;
+Call the record_sequence_narration tool exactly once with: a one-to-two sentence overall summary of what this flow does, and for each step (referenced by its order index) a short 2-6 word label in plain language describing what that call actually does — nicer and more specific than the generic default, but never inventing behavior the default label doesn't already imply.`;
 
 function buildUserPrompt(context: SequenceDiagramContextInput): string {
-	const lines: string[] = [`Target ${context.target.kind}: ${context.target.name}${context.target.filePath ? ` (${context.target.filePath})` : ''}`];
+	const lines: string[] = [`Target ${context.target.kind}: ${context.target.name}`, ''];
 
-	if (context.siblings.length > 0) {
-		lines.push('', 'Other symbols declared in the same file:', ...context.siblings.map((p) => `- ${p.name} (${p.kind})`));
+	if (context.steps.length === 0) {
+		lines.push('No steps — this target has no resolvable calls.');
+	} else {
+		lines.push('Steps:', ...context.steps.map((step) => `${step.order}. ${step.from} -> ${step.to} (default: "${step.defaultAction}")`));
 	}
-	if (context.callers.length > 0) {
-		lines.push('', 'Files that import the target\'s file (likely callers):', ...context.callers.map((p) => `- ${p.name}`));
-	}
-	if (context.callees.length > 0) {
-		lines.push('', 'Files the target\'s file imports (likely callees):', ...context.callees.map((p) => `- ${p.name}`));
-	}
+
 	return lines.join('\n');
 }
 
-function buildRecordSequenceDiagramTool(): Anthropic.Tool {
+function buildRecordSequenceNarrationTool(): Anthropic.Tool {
 	return {
-		name: RECORD_SEQUENCE_DIAGRAM_TOOL_NAME,
-		description: 'Records a sequence diagram sketch for a function or file as a summary plus an ordered list of from/to/action steps.',
+		name: RECORD_SEQUENCE_NARRATION_TOOL_NAME,
+		description: 'Records a one-to-two sentence summary and a per-step label for an already-fixed sequence diagram.',
 		strict: true,
 		input_schema: {
 			type: 'object',
 			properties: {
-				summary: { type: 'string', description: "One-to-two sentence summary of the target's likely role in the flow." },
-				steps: {
+				summary: { type: 'string', description: "One-to-two sentence summary of the flow's overall purpose." },
+				stepLabels: {
 					type: 'array',
 					items: {
 						type: 'object',
 						properties: {
-							from: { type: 'string', description: 'Participant initiating this step.' },
-							to: { type: 'string', description: 'Participant receiving this step.' },
-							action: { type: 'string', description: 'Short description of what happens, e.g. a call or a return.' }
+							order: { type: 'integer', description: 'The order index of the step this label belongs to.' },
+							label: { type: 'string', description: 'Short 2-6 word label for what this step does.' }
 						},
-						required: ['from', 'to', 'action']
+						required: ['order', 'label']
 					}
 				}
 			},
-			required: ['summary', 'steps']
+			required: ['summary', 'stepLabels']
 		}
 	};
 }
@@ -133,37 +129,33 @@ function buildRecordSequenceDiagramTool(): Anthropic.Tool {
  * hand-written validation can be unit tested directly, without mocking the
  * Anthropic API, matching `parseProposedArchitecture` (./claudeClient).
  */
-export function parseSequenceDiagram(input: unknown): SequenceDiagram {
+export function parseSequenceDiagramNarration(input: unknown): SequenceDiagramNarration {
 	if (typeof input !== 'object' || input === null) {
-		throw new Error('Claude\'s record_sequence_diagram call was missing its input.');
+		throw new Error("Claude's record_sequence_narration call was missing its input.");
 	}
 
-	const { summary, steps } = input as Record<string, unknown>;
+	const { summary, stepLabels } = input as Record<string, unknown>;
 	if (typeof summary !== 'string' || summary.trim().length === 0) {
-		throw new Error('Claude\'s record_sequence_diagram call must include a non-empty "summary" string.');
+		throw new Error('Claude\'s record_sequence_narration call must include a non-empty "summary" string.');
 	}
-	if (!Array.isArray(steps)) {
-		throw new Error('Claude\'s record_sequence_diagram call must include a "steps" array.');
+	if (!Array.isArray(stepLabels)) {
+		throw new Error('Claude\'s record_sequence_narration call must include a "stepLabels" array.');
 	}
 
-	return { summary, steps: steps.map((step, index) => parseSequenceDiagramStep(step, index)) };
+	return { summary, stepLabels: stepLabels.map((entry, index) => parseSequenceDiagramStepLabel(entry, index)) };
 }
 
-function parseSequenceDiagramStep(value: unknown, index: number): SequenceDiagramStep {
+function parseSequenceDiagramStepLabel(value: unknown, index: number): SequenceDiagramStepLabel {
 	if (typeof value !== 'object' || value === null) {
-		throw new Error(`Claude's record_sequence_diagram call: "steps[${index}]" must be an object.`);
+		throw new Error(`Claude's record_sequence_narration call: "stepLabels[${index}]" must be an object.`);
 	}
-	const step = value as Record<string, unknown>;
-	return {
-		from: requireString(step.from, `steps[${index}].from`),
-		to: requireString(step.to, `steps[${index}].to`),
-		action: requireString(step.action, `steps[${index}].action`)
-	};
-}
-
-function requireString(value: unknown, path: string): string {
-	if (typeof value !== 'string' || value.trim().length === 0) {
-		throw new Error(`Claude's record_sequence_diagram call: "${path}" must be a non-empty string.`);
+	const entry = value as Record<string, unknown>;
+	const { order, label } = entry;
+	if (typeof order !== 'number' || !Number.isFinite(order)) {
+		throw new Error(`Claude's record_sequence_narration call: "stepLabels[${index}].order" must be a number.`);
 	}
-	return value;
+	if (typeof label !== 'string' || label.trim().length === 0) {
+		throw new Error(`Claude's record_sequence_narration call: "stepLabels[${index}].label" must be a non-empty string.`);
+	}
+	return { order, label };
 }

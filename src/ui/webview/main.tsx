@@ -9,9 +9,17 @@ import '@xyflow/react/dist/style.css';
 import './styles.css';
 import { App } from './App';
 import { EntryPointFlowApp } from './EntryPointFlowApp';
+import { SequenceDiagramApp } from './SequenceDiagramApp';
 
 const container = document.getElementById('root');
 if (container) {
 	const view = container.dataset.view;
-	createRoot(container).render(view === 'entryPointFlow' ? <EntryPointFlowApp /> : <App />);
+	const root = createRoot(container);
+	if (view === 'entryPointFlow') {
+		root.render(<EntryPointFlowApp />);
+	} else if (view === 'sequenceDiagram') {
+		root.render(<SequenceDiagramApp />);
+	} else {
+		root.render(<App />);
+	}
 }

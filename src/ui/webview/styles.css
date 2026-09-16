@@ -434,3 +434,35 @@ body,
 .ag-flow-edge .react-flow__edge-path {
 	stroke: var(--vscode-charts-foreground, var(--vscode-foreground));
 }
+
+.ag-sequence-summary {
+	right: 8px;
+	left: 8px;
+	width: auto;
+	flex-wrap: wrap;
+}
+
+.ag-sequence-lifeline {
+	position: relative;
+	height: 100%;
+}
+
+.ag-sequence-lifeline-header {
+	height: 56px;
+	cursor: default;
+}
+
+.ag-sequence-lifeline-header.is-clickable {
+	cursor: pointer;
+}
+
+.ag-sequence-lifeline-track {
+	margin: 0 auto;
+	width: 0;
+	border-left: 2px dashed var(--ag-accent, var(--vscode-panel-border));
+	opacity: 0.6;
+}
+
+.ag-edge-calls .react-flow__edge-path {
+	stroke: var(--vscode-charts-foreground, var(--vscode-foreground));
+}

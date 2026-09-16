@@ -1,39 +1,38 @@
-// A Webview Panel showing the Claude-generated sequence diagram ./sequenceDiagram
-// computes for a function/file node: a short summary plus an ordered list of
-// from/to/action steps. Mirrors ./impactView's singleton create-or-reveal
-// lifecycle and plain-HTML webview, kept as its own view (separate from the
-// sidebar tree) per the epic's own requirement.
+// The sequence diagram view's panel lifecycle and postMessage bridge
+// (contract in ./webview/sequenceDiagramProtocol) — mirrors
+// ./entryPointFlowPanel's singleton create-or-reveal shape, loading the same
+// bundled React Flow script (./webview/main.tsx picks the root component via
+// `data-view`). Unlike that panel, this one owns no `ProjectGraphStore`: the
+// whole diagram is precomputed once per "Show Sequence Diagram" invocation
+// (../sequenceDiagram's view state), so opening a lifeline's file only needs
+// the `filePath`/`range` already carried on that state.
 import * as vscode from 'vscode';
 import { SequenceDiagramViewState } from './sequenceDiagram';
 import { FOCUS_SETTINGS_VIEW_COMMAND } from './settingsView';
+import { SequenceDiagramWebviewToHostMessage } from './webview/sequenceDiagramProtocol';
 
 const VIEW_TYPE = 'agentGraph.sequenceDiagramView';
+const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
+const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
 
-type WebviewToHostMessage = { type: 'ready' } | { type: 'openAiSettings' };
-
-/**
- * Single Webview Panel for the most recently requested sequence diagram.
- * Requesting another node's diagram updates the existing panel (`update`)
- * instead of opening a second one, like `ImpactPanel.createOrShow`.
- */
 export class SequenceDiagramPanel implements vscode.Disposable {
 	private static current: SequenceDiagramPanel | undefined;
 
 	private readonly disposables: vscode.Disposable[] = [];
 	private disposed = false;
 
-	private constructor(private readonly panel: vscode.WebviewPanel, private state: SequenceDiagramViewState) {
-		this.panel.webview.html = renderHtml(this.panel.webview);
+	private constructor(private readonly panel: vscode.WebviewPanel, private readonly extensionUri: vscode.Uri, private state: SequenceDiagramViewState) {
+		this.panel.webview.html = this.renderHtml();
 		this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 		this.panel.webview.onDidReceiveMessage(
-			(message: WebviewToHostMessage) => this.handleMessage(message),
+			(message: SequenceDiagramWebviewToHostMessage) => this.handleMessage(message),
 			null,
 			this.disposables
 		);
 	}
 
 	/** Opens the sequence diagram view for `state`, or reveals and refreshes the existing one if it's already open. */
-	static createOrShow(state: SequenceDiagramViewState): SequenceDiagramPanel {
+	static createOrShow(extensionUri: vscode.Uri, state: SequenceDiagramViewState): SequenceDiagramPanel {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
 		if (SequenceDiagramPanel.current) {
@@ -44,10 +43,11 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 
 		const panel = vscode.window.createWebviewPanel(VIEW_TYPE, viewTitle(state), column ?? vscode.ViewColumn.Beside, {
 			enableScripts: true,
-			retainContextWhenHidden: true
+			retainContextWhenHidden: true,
+			localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist', 'ui', 'webview')]
 		});
 
-		SequenceDiagramPanel.current = new SequenceDiagramPanel(panel, state);
+		SequenceDiagramPanel.current = new SequenceDiagramPanel(panel, extensionUri, state);
 		return SequenceDiagramPanel.current;
 	}
 
@@ -73,19 +73,63 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 		this.panel.dispose();
 	}
 
-	private handleMessage(message: WebviewToHostMessage): void {
+	private handleMessage(message: SequenceDiagramWebviewToHostMessage): void {
 		switch (message?.type) {
-			case 'ready':
+			case 'sequenceDiagram:ready':
 				this.postState();
 				return;
-			case 'openAiSettings':
+			case 'sequenceDiagram:openAiSettings':
 				void vscode.commands.executeCommand(FOCUS_SETTINGS_VIEW_COMMAND);
+				return;
+			case 'sequenceDiagram:openLifeline':
+				void this.openLifeline(message.lifelineId);
 				return;
 		}
 	}
 
+	private async openLifeline(lifelineId: string): Promise<void> {
+		const lifeline = this.state.lifelines.find((candidate) => candidate.id === lifelineId);
+		if (!lifeline?.filePath) {
+			return;
+		}
+		const document = await vscode.workspace.openTextDocument(lifeline.filePath);
+		const selection = lifeline.range
+			? new vscode.Range(lifeline.range.startLine - 1, lifeline.range.startColumn - 1, lifeline.range.endLine - 1, lifeline.range.endColumn - 1)
+			: undefined;
+		await vscode.window.showTextDocument(document, { preview: true, selection });
+	}
+
 	private postState(): void {
-		void this.panel.webview.postMessage({ type: 'state', ...this.state });
+		void this.panel.webview.postMessage({ type: 'sequenceDiagram:state', ...this.state });
+	}
+
+	private renderHtml(): string {
+		const webview = this.panel.webview;
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, ...WEBVIEW_SCRIPT_PATH));
+		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, ...WEBVIEW_STYLE_PATH));
+		const nonce = getNonce();
+		const csp = [
+			`default-src 'none'`,
+			`style-src 'unsafe-inline' ${webview.cspSource}`,
+			`img-src ${webview.cspSource} data:`,
+			`font-src ${webview.cspSource}`,
+			`script-src 'nonce-${nonce}'`
+		].join('; ');
+
+		return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta http-equiv="Content-Security-Policy" content="${csp}" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link rel="stylesheet" href="${styleUri}" />
+	<title>${viewTitle(this.state)}</title>
+</head>
+<body>
+	<div id="root" data-view="sequenceDiagram"></div>
+	<script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
 	}
 }
 
@@ -100,170 +144,4 @@ function getNonce(): string {
 		nonce += characters.charAt(Math.floor(Math.random() * characters.length));
 	}
 	return nonce;
-}
-
-function renderHtml(webview: vscode.Webview): string {
-	const nonce = getNonce();
-	return `<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8" />
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
-	<title>Sequence Diagram</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			color: var(--vscode-foreground);
-			padding: 16px 20px;
-		}
-		h2 {
-			margin: 0;
-		}
-		#filePath {
-			opacity: 0.7;
-			font-size: 12px;
-			margin: 2px 0 12px;
-		}
-		#summary {
-			line-height: 1.5;
-			margin-bottom: 20px;
-		}
-		#noApiKeyNotice button, #errorNotice button {
-			font: inherit;
-			color: var(--vscode-textLink-foreground);
-			background: none;
-			border: none;
-			padding: 0;
-			cursor: pointer;
-			text-decoration: underline;
-		}
-		#steps {
-			display: flex;
-			flex-direction: column;
-			gap: 6px;
-		}
-		.step {
-			display: flex;
-			align-items: baseline;
-			gap: 8px;
-			font-size: 13px;
-			background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
-			border: 1px solid var(--vscode-widget-border, transparent);
-			border-radius: 3px;
-			padding: 6px 8px;
-		}
-		.step-index {
-			opacity: 0.6;
-			min-width: 16px;
-		}
-		.step-participants {
-			font-weight: 600;
-			white-space: nowrap;
-		}
-		.step-arrow {
-			opacity: 0.6;
-		}
-		.step-action {
-			opacity: 0.9;
-		}
-		.empty {
-			font-size: 12px;
-			opacity: 0.6;
-		}
-	</style>
-</head>
-<body>
-	<h2 id="title">Loading...</h2>
-	<div id="filePath"></div>
-	<p id="noApiKeyNotice" style="display: none;"></p>
-	<p id="errorNotice" style="display: none;"></p>
-	<div id="summary"></div>
-	<div id="steps"></div>
-
-	<script nonce="${nonce}">
-		const vscode = acquireVsCodeApi();
-
-		const titleEl = document.getElementById('title');
-		const filePathEl = document.getElementById('filePath');
-		const noApiKeyNoticeEl = document.getElementById('noApiKeyNotice');
-		const errorNoticeEl = document.getElementById('errorNotice');
-		const summaryEl = document.getElementById('summary');
-		const stepsEl = document.getElementById('steps');
-
-		function settingsNotice(container, message) {
-			container.style.display = 'block';
-			container.textContent = '';
-			container.appendChild(document.createTextNode(message + ' '));
-			const link = document.createElement('button');
-			link.textContent = 'Open AI Settings';
-			link.addEventListener('click', () => vscode.postMessage({ type: 'openAiSettings' }));
-			container.appendChild(link);
-		}
-
-		window.addEventListener('message', (event) => {
-			const state = event.data;
-			if (state.type !== 'state') {
-				return;
-			}
-
-			titleEl.textContent = state.targetName + ' (' + state.targetKind + ')';
-			filePathEl.textContent = state.filePath || '';
-
-			noApiKeyNoticeEl.style.display = 'none';
-			errorNoticeEl.style.display = 'none';
-			summaryEl.textContent = '';
-			stepsEl.innerHTML = '';
-
-			if (state.status === 'noApiKey') {
-				settingsNotice(noApiKeyNoticeEl, state.summary);
-				return;
-			}
-			if (state.status === 'error') {
-				errorNoticeEl.style.display = 'block';
-				errorNoticeEl.textContent = state.summary;
-				return;
-			}
-
-			summaryEl.textContent = state.summary;
-
-			if (state.steps.length === 0) {
-				const empty = document.createElement('div');
-				empty.className = 'empty';
-				empty.textContent = 'No steps returned.';
-				stepsEl.appendChild(empty);
-				return;
-			}
-
-			state.steps.forEach((step, index) => {
-				const row = document.createElement('div');
-				row.className = 'step';
-
-				const indexEl = document.createElement('span');
-				indexEl.className = 'step-index';
-				indexEl.textContent = (index + 1) + '.';
-				row.appendChild(indexEl);
-
-				const participants = document.createElement('span');
-				participants.className = 'step-participants';
-				participants.textContent = step.from + ' \\u2192 ' + step.to;
-				row.appendChild(participants);
-
-				const arrow = document.createElement('span');
-				arrow.className = 'step-arrow';
-				arrow.textContent = ':';
-				row.appendChild(arrow);
-
-				const action = document.createElement('span');
-				action.className = 'step-action';
-				action.textContent = step.action;
-				row.appendChild(action);
-
-				stepsEl.appendChild(row);
-			});
-		});
-
-		vscode.postMessage({ type: 'ready' });
-	</script>
-</body>
-</html>`;
 }

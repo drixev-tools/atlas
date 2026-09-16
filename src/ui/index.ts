@@ -10,6 +10,7 @@ export * from './analyzeWorkspace';
 export * from './impact';
 export * from './impactView';
 export * from './sequenceDiagram';
+export * from './sequenceDiagramLayout';
 export * from './sequenceDiagramView';
 export * from './entryPointFlow';
 export * from './entryPointFlowPanel';
