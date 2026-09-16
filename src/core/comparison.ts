@@ -1,11 +1,10 @@
-// Proposed vs Observed (Epic 10): matches a freshly-built Proposed Graph
-// (Epic 9, see ../design/proposedGraph) against the Observed Graph already in
-// the Project Graph store (Epics 2-4), and annotates every node/edge with the
-// `GraphStatus` the schema already reserves for this (`matched` /
-// `proposed_only` / `observed_only` — see ./schema). `matchNodes`/`matchEdges`
-// are the pure comparison algorithm (task 1), exercised directly in tests;
-// `reconcileProposedGraph` is the store-facing half that applies their result
-// as status annotations (task 2).
+// Matches a freshly-built Proposed Graph (see ../design/proposedGraph)
+// against the Observed Graph already in the Project Graph store, and
+// annotates every node/edge with the `GraphStatus` the schema already
+// reserves for this (`matched` / `proposed_only` / `observed_only` — see
+// ./schema). `matchNodes`/`matchEdges` are the pure comparison algorithm,
+// exercised directly in tests; `reconcileProposedGraph` is the store-facing
+// half that applies their result as status annotations.
 import { CodeGraph, GraphEdge, GraphNode } from '../pipelines/model';
 import { ProjectGraphStore } from './store';
 

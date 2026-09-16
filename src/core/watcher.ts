@@ -67,7 +67,7 @@ export interface ProjectGraphWatcherOptions {
 	pythonServer?: PythonServer;
 	/** Reports errors from a failed re-parse/update instead of throwing out of the watcher's event handlers. Defaults to `console.error`. */
 	onError?: (error: unknown, filePath: string) => void;
-	/** Counts each applied create/change/delete under the `incrementalUpdate` usage metric (Epic 11). Omit to skip counting, e.g. in tests. */
+	/** Counts each applied create/change/delete under the `incrementalUpdate` usage metric. Omit to skip counting, e.g. in tests. */
 	metrics?: UsageMetricsStore;
 }
 

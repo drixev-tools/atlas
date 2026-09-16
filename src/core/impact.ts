@@ -1,8 +1,8 @@
 // Structural impact analysis over the Project Graph Core: given a node (or
 // file), what it depends on and what depends on it, computed purely from the
 // `imports` edges the extraction pipelines already produce. This is the
-// building block the "Project Graph: Calculate Impact" command (Epic 8) uses
-// to answer "what does changing this file affect?".
+// building block the "Project Graph: Calculate Impact" command uses to
+// answer "what does changing this file affect?".
 import * as path from 'path';
 import { ProjectGraphStore, StoredNode } from './store';
 

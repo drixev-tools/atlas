@@ -1,7 +1,6 @@
-// Browser entry point for the Project Graph webview (Fase 1.2, Epic F),
-// bundled standalone by esbuild (see esbuild.js) — React, React Flow, and
-// this file's CSS imports included — the same way the retired Cytoscape.js
-// version (Epic D) bundled Cytoscape into its own webview script.
+// Browser entry point for the Project Graph webview, bundled standalone by
+// esbuild (see esbuild.js) — React, React Flow, and this file's CSS imports
+// included.
 import { createRoot } from 'react-dom/client';
 import '@xyflow/react/dist/style.css';
 import './styles.css';

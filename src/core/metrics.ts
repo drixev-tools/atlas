@@ -1,5 +1,5 @@
-// Local usage metrics (Epic 11): counts how many times each Agent Graph
-// feature runs, purely for the user's own visibility into their usage. This
+// Local usage metrics: counts how many times each Agent Graph feature runs,
+// purely for the user's own visibility into their usage. This
 // module never makes a network call — it only reads/writes VS Code's
 // `Memento` (backed by a local file in the extension's per-install storage,
 // see `context.globalState`), so there is nothing here to send metrics

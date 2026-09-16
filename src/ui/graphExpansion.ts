@@ -1,14 +1,12 @@
 // Pure helpers behind the graph webview's default-collapsed, progressively
-// expanded view (originally Fase 1.1, Epic B tasks 3-5; rebuilt on the
-// filtered `StoredGraph` — rather than Cytoscape elements — for the React
-// Flow rework, Fase 1.2 Epic F): given the *full* workflow-relevant graph the
-// host sends over `graph:update` (already collapsed by `filterGraphForWorkflow`,
-// Epic E), compute which subset should actually be rendered for a given
-// focused node plus whichever other nodes the user has expanded by clicking.
-// Kept free of any React/webview dependency so it can be unit tested
-// directly, the same way `graphFilter.ts` is. `ui/webview/App.tsx` is the
-// only caller; it owns the actual render/click wiring and the resulting
-// selection/expansion state.
+// expanded view: given the *full* workflow-relevant graph the host sends
+// over `graph:update` (already collapsed by `filterGraphForWorkflow`),
+// compute which subset should actually be rendered for a given focused node
+// plus whichever other nodes the user has expanded by clicking. Kept free of
+// any React/webview dependency so it can be unit tested directly, the same
+// way `graphFilter.ts` is. `ui/webview/App.tsx` is the only caller; it owns
+// the actual render/click wiring and the resulting selection/expansion
+// state.
 import { StoredGraph } from '../core/store';
 
 /**

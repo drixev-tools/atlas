@@ -1,11 +1,9 @@
-// The Project Graph's visual panel — React Flow rebuild (Fase 1.2, Epic F)
-// of the Cytoscape.js webview retired in Epic D. Owns only the panel
-// lifecycle and the postMessage bridge (contract in `./webview/protocol`,
-// reused unchanged from the Cytoscape version); the actual node/edge data
-// comes from `ProjectGraphStore` (Epic 4/5), collapsed to the workflow-
-// relevant hierarchy by `filterGraphForWorkflow` (Epic E), and
-// rendering/navigation (hierarchical layout, focus, progressive expansion)
-// happens entirely in the webview script (`./webview/App.tsx`).
+// The Project Graph's visual panel. Owns only the panel lifecycle and the
+// postMessage bridge (contract in `./webview/protocol`); the actual
+// node/edge data comes from `ProjectGraphStore`, collapsed to the workflow-
+// relevant hierarchy by `filterGraphForWorkflow`, and rendering/navigation
+// (hierarchical layout, focus, progressive expansion) happens entirely in
+// the webview script (`./webview/App.tsx`).
 import * as vscode from 'vscode';
 import { ProjectGraphStore } from '../core/store';
 import { filterGraphForWorkflow } from './graphFilter';
@@ -62,7 +60,7 @@ export class GraphPanel implements vscode.Disposable {
 		return GraphPanel.current;
 	}
 
-	/** Syncs the currently open graph panel's selection to `nodeId` (Sidebar Panel, Epic A task 3), e.g. when a tree item is clicked. No-op when no panel is open. */
+	/** Syncs the currently open graph panel's selection to `nodeId`, e.g. when a tree item is clicked. No-op when no panel is open. */
 	static selectNode(nodeId: string): void {
 		GraphPanel.current?.postSelect(nodeId);
 	}
@@ -100,9 +98,9 @@ export class GraphPanel implements vscode.Disposable {
 
 	/**
 	 * Sent on webview load (`graph:ready`) and whenever the panel is re-shown
-	 * with a fresh store, e.g. via the command being run again. Task 6 —
-	 * `focusNodeId` is resolved from the *current* active editor at each of
-	 * those moments (both are, in effect, "opening the view"), against the
+	 * with a fresh store, e.g. via the command being run again. `focusNodeId`
+	 * is resolved from the *current* active editor at each of those moments
+	 * (both are, in effect, "opening the view"), against the
 	 * already workflow-filtered graph so it always names a node the webview
 	 * actually has.
 	 */

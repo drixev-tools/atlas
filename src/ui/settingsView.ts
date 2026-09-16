@@ -1,13 +1,8 @@
-// AI Settings sidebar view (Fase 1.2, Epic G): a Webview View registered
-// alongside the Tree View sidebar (./sidebarView) in the same Activity Bar
-// container (see package.json's `agentGraph` view container), for managing
-// the Anthropic API key and which Claude model to use — the shared
-// infrastructure Design Project (./designProject) and the future
-// Impact/Sequence Diagram views build on via `ClaudeSettingsStore`
-// (../design/settings). It replaces the old `showInputBox` prompt
-// (../design/apiKey used to own that; see its header comment) but keeps the
-// key itself in SecretStorage — this view only ever reads/writes through
-// `ClaudeSettingsStore`, never a second place.
+// Webview View registered alongside the Tree View sidebar (./sidebarView) in
+// the same Activity Bar container, for managing the Anthropic API key and
+// which Claude model to use via `ClaudeSettingsStore` (../design/settings).
+// This view only ever reads/writes through that store, never SecretStorage
+// directly.
 import * as vscode from 'vscode';
 import { CLAUDE_MODEL_OPTIONS, ClaudeSettingsStore } from '../design/settings';
 
@@ -86,7 +81,6 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 	}
 }
 
-/** Registers the AI Settings Webview View. Pushed onto `context.subscriptions` like `registerSidebar` (./sidebarView). */
 export function registerSettingsView(context: vscode.ExtensionContext, settings: ClaudeSettingsStore): SettingsViewProvider {
 	const provider = new SettingsViewProvider(settings);
 	context.subscriptions.push(vscode.window.registerWebviewViewProvider(SETTINGS_VIEW_ID, provider));

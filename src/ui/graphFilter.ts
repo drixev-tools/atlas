@@ -1,11 +1,10 @@
 // Pure transform collapsing the Project Graph Core's full node/edge set down
 // to the File -> Class -> Method/Function hierarchy a workflow view actually
-// needs (Fase 1.2, Epic E): the React Flow rebuild (Epic F) and any other
-// consumer that only cares about that hierarchy (e.g. a future Calculate
-// Impact view) call `filterGraphForWorkflow` instead of filtering
-// `StoredGraph` themselves. Kept free of any vscode/rendering dependency,
-// like `graphFocus.ts` and `sidebarData.ts`, so it can be unit tested
-// directly against `StoredGraph` fixtures.
+// needs: any consumer that only cares about that hierarchy calls
+// `filterGraphForWorkflow` instead of filtering `StoredGraph` themselves.
+// Kept free of any vscode/rendering dependency, like `graphFocus.ts` and
+// `sidebarData.ts`, so it can be unit tested directly against `StoredGraph`
+// fixtures.
 import { NODE_KINDS, NodeKind } from '../pipelines/model';
 import { StoredEdge, StoredGraph } from '../core/store';
 

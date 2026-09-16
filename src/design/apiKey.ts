@@ -1,10 +1,8 @@
-// Anthropic API key management (Epic 9, task 2): the key is never stored in
-// workspace settings or the Project Graph database, only in VS Code's
-// SecretStorage (OS keychain-backed). It used to be collected via a
-// `showInputBox` prompt the first time "Design Project" ran without one
-// stored; Fase 1.2, Epic G replaced that prompt with the sidebar Settings
-// view (../ui/settingsView, via ./settings' `ClaudeSettingsStore`), which
-// reads and writes through the same `ApiKeyStore` below.
+// Anthropic API key management: the key is never stored in workspace
+// settings or the Project Graph database, only in VS Code's SecretStorage
+// (OS keychain-backed). The sidebar Settings view (../ui/settingsView, via
+// ./settings' `ClaudeSettingsStore`) reads and writes through the same
+// `ApiKeyStore` below.
 import * as vscode from 'vscode';
 
 export const ANTHROPIC_API_KEY_SECRET_KEY = 'agentGraph.anthropicApiKey';

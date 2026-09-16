@@ -127,9 +127,9 @@ function buildEdgeWhere(filter: EdgeFilter): { clause: string; params: BindParam
 
 /**
  * Data-access layer over the Project Graph Core's SQLite database: CRUD for
- * nodes and edges plus the query helpers the renderer (Epic 6) and the
- * Analyze/Explore/Impact commands (Epics 7-8) will need. Callers that only
- * need an in-memory graph for a single pipeline run can construct this
+ * nodes and edges plus the query helpers the renderer and the
+ * Analyze/Explore/Impact commands need. Callers that only need an in-memory
+ * graph for a single pipeline run can construct this
  * directly around any open `Database`; most callers should use `open`/
  * `save`/`close` to manage a database file across VS Code sessions.
  */
@@ -277,7 +277,7 @@ export class ProjectGraphStore {
 		this.db.run('DELETE FROM edges WHERE id = ?', [id]);
 	}
 
-	/** The whole stored graph (or just one status slice of it), e.g. for the Epic 6 renderer. */
+	/** The whole stored graph (or just one status slice of it), e.g. for the renderer. */
 	getGraph(filter: { status?: GraphStatus } = {}): StoredGraph {
 		return {
 			nodes: this.listNodes(filter),
@@ -285,15 +285,15 @@ export class ProjectGraphStore {
 		};
 	}
 
-	/** Removes every node and edge. Used for a full re-population; Epic 5 will add incremental upserts/deletes instead of clearing wholesale. */
+	/** Removes every node and edge. Used for a full re-population; see ./incremental for the incremental upsert/delete path that avoids clearing wholesale. */
 	clear(): void {
 		this.db.run('DELETE FROM edges; DELETE FROM nodes;');
 	}
 
 	/**
 	 * Removes only the nodes/edges tagged `status`, leaving every other status
-	 * slice untouched. Used to re-populate just the Proposed Graph (Epic 9)
-	 * without disturbing the Observed Graph the extraction pipelines built —
+	 * slice untouched. Used to re-populate just the Proposed Graph without
+	 * disturbing the Observed Graph the extraction pipelines built —
 	 * unlike `clear()`, which wipes the whole store for a full rebuild. Edges
 	 * are deleted before nodes so the `ON DELETE CASCADE` from a node of this
 	 * status never reaches into an edge of a *different* status that happens

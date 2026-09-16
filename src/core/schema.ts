@@ -16,7 +16,7 @@ export const DEFAULT_GRAPH_STATUS: GraphStatus = 'observed_only';
  * Schema for the Project Graph Core. A single `nodes`/`edges` pair holds the
  * whole workspace graph, keyed by the same ids the pipelines already assign
  * (see each pipeline's normalize.ts), so upserts from repeated extraction
- * runs (full or, from Epic 5 on, incremental) collapse onto the same rows.
+ * runs (full or incremental) collapse onto the same rows.
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS nodes (

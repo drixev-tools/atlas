@@ -1,8 +1,8 @@
-// Shared types for "Design Project" (Epic 9): the structured-plus-free-text
-// intent a user fills in (./intentForm collects it, though that lives in
-// ../ui since it's a vscode-facing form), and the architecture Claude
-// proposes in response (./claudeClient talks to the API, ./proposedGraph
-// converts the result into the pipeline-agnostic graph model).
+// Shared types for "Design Project": the structured-plus-free-text intent a
+// user fills in (../ui/designProject's `collectProjectIntent` collects it),
+// and the architecture Claude proposes in response (./claudeClient talks to
+// the API, ./proposedGraph converts the result into the pipeline-agnostic
+// graph model).
 import { EdgeKind, NodeKind } from '../pipelines/model';
 
 export type ProjectStack = 'typescript' | 'python' | 'mixed';

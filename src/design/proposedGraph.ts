@@ -1,5 +1,5 @@
-// Builds the Proposed Graph from Claude's response (Epic 9, task 4): a pure
-// mapping from `ProposedArchitecture` to the same pipeline-agnostic
+// Builds the Proposed Graph from Claude's response: a pure mapping from
+// `ProposedArchitecture` to the same pipeline-agnostic
 // `CodeGraph` shape the TS/JS and Python extraction pipelines produce (see
 // ../pipelines/model), so `populateProposedGraph` (../core/populate) can
 // persist it through the existing store with no schema of its own.
@@ -11,9 +11,9 @@ import { ProposedArchitecture, ProposedNode } from './model';
  * Id for a proposed `file` node: the exact `file:<absolute path>` scheme the
  * TS/JS pipeline assigns real file nodes (see ../pipelines/ts/normalize.ts).
  * Once the user creates that file and runs "Analyze Workspace", the node
- * lands under the same id, which is what will let Epic 10's Proposed vs
- * Observed comparison recognize it as the same node instead of two unrelated
- * ones.
+ * lands under the same id, which is what lets the Proposed vs Observed
+ * comparison (../core/comparison) recognize it as the same node instead of
+ * two unrelated ones.
  */
 function proposedFileNodeId(rootDir: string, filePath: string): string {
 	return `file:${path.resolve(rootDir, filePath)}`;

@@ -43,9 +43,9 @@ export interface NormalizeToGraphOptions {
 	/**
 	 * Absolute paths of every source file known to belong to the project, in
 	 * addition to `files` itself. Lets a partial extraction — e.g. a single
-	 * changed file re-parsed for an incremental update (Epic 5) — still
-	 * resolve imports to sibling file nodes it isn't re-parsing this run,
-	 * instead of misclassifying them as external modules.
+	 * changed file re-parsed for an incremental update — still resolve
+	 * imports to sibling file nodes it isn't re-parsing this run, instead of
+	 * misclassifying them as external modules.
 	 */
 	knownFilePaths?: string[];
 }

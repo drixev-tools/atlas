@@ -1,13 +1,11 @@
-// Claude settings shared across every AI-powered feature (Fase 1.2, Epic G):
-// the Anthropic API key (still SecretStorage-backed, see ./apiKey) plus which
-// Claude model to call — a non-secret preference, so it lives in plain VS
-// Code configuration instead. `ClaudeSettingsStore` is the one interface both
-// pieces sit behind, narrowed like `ApiKeyStore` (./apiKey) and
-// `ClaudeDesignClient` (./claudeClient) so tests can supply an in-memory
-// fake; `../ui/settingsView` is the sidebar UI built on top of it, and
-// `resolveClaudeSettings` below is what Design Project (../ui/designProject)
-// and the future Impact/Sequence Diagram features call to get both values in
-// one shot instead of duplicating either storage mechanism.
+// Claude settings shared across every AI-powered feature: the Anthropic API
+// key (still SecretStorage-backed, see ./apiKey) plus which Claude model to
+// call — a non-secret preference, so it lives in plain VS Code configuration
+// instead. `ClaudeSettingsStore` is the one interface both pieces sit
+// behind, narrowed like `ApiKeyStore` (./apiKey) and `ClaudeDesignClient`
+// (./claudeClient) so tests can supply an in-memory fake; `resolveClaudeSettings`
+// below gets both values in one shot instead of duplicating either storage
+// mechanism.
 import * as vscode from 'vscode';
 import { ApiKeyStore } from './apiKey';
 import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
@@ -107,9 +105,8 @@ export class VsCodeClaudeSettingsStore implements ClaudeSettingsStore {
 /**
  * Resolves the API key and model every AI feature needs in one call.
  * Returns `undefined` (without prompting for anything) when no key is stored
- * yet — task 2 of Epic G replaces the old `showInputBox` prompt with the
- * sidebar Settings view (../ui/settingsView), so a caller with no key just
- * directs the user there instead of asking here.
+ * yet — a caller with no key directs the user to the sidebar Settings view
+ * (../ui/settingsView) instead of prompting here.
  */
 export async function resolveClaudeSettings(settings: ClaudeSettingsStore): Promise<ClaudeSettings | undefined> {
 	const apiKey = await settings.getApiKey();

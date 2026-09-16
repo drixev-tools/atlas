@@ -1,14 +1,7 @@
-// Sidebar Panel (Fase 1.1, Epic A): a native VS Code Tree View, registered
-// against the Activity Bar view container declared in package.json, that
-// combines shortcuts to the existing Analyze/Explore/Impact commands with a
-// files/modules/symbols navigation tree built from the Project Graph Core.
 // The pure file/symbol tree-building logic lives in ./sidebarData; this
 // module owns everything `vscode`-specific: `TreeItem` rendering, the
 // `TreeView` itself, and syncing a click to the editor and to whichever
-// `GraphPanel` (./graphPanel) is currently open (task 3) — that sync was
-// dropped when the Cytoscape.js webview it targeted was retired in Fase 1.2,
-// Epic D, and comes back here now that the React Flow rebuild (Epic F)
-// gives it a panel to sync to again.
+// `GraphPanel` (./graphPanel) is currently open.
 import * as vscode from 'vscode';
 import { NodeKind } from '../pipelines/model';
 import { ProjectGraphStore, StoredNode } from '../core/store';
@@ -31,7 +24,6 @@ interface ShortcutElement {
 
 type TreeElement = ShortcutElement | SidebarTreeNode;
 
-/** Task 4: shortcuts to the commands added by earlier epics, reusing their existing command ids rather than duplicating behavior in the sidebar. */
 const SHORTCUTS: ShortcutElement[] = [
 	{ kind: 'shortcut', label: 'Analyze Workspace', commandId: ANALYZE_WORKSPACE_COMMAND, icon: 'sync' },
 	{ kind: 'shortcut', label: 'Open Architecture', commandId: OPEN_ARCHITECTURE_COMMAND, icon: 'graph' },
@@ -80,7 +72,7 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 		this.store?.close();
 	}
 
-	/** Reopens the Project Graph Core from disk and rebuilds the tree. Called on activation and after any command that changes the graph (Analyze Workspace, Design Project) or on the sidebar's own manual refresh. */
+	/** Reopens the Project Graph Core from disk and rebuilds the tree. */
 	async refresh(): Promise<void> {
 		const nextStore = await ProjectGraphStore.open({ filePath: this.options.dbPath });
 		this.store?.close();
@@ -141,10 +133,10 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 }
 
 /**
- * Task 3: clicking a tree item opens its file in the editor (revealing its
- * exact range for a symbol) and syncs selection into whichever `GraphPanel`
- * is currently open, via the same `postMessage` bridge `graphPanel.ts` uses
- * for its own graph updates. Opening the file is a no-op for a node with no
+ * Clicking a tree item opens its file in the editor (revealing its exact
+ * range for a symbol) and syncs selection into whichever `GraphPanel` is
+ * currently open, via the same `postMessage` bridge `graphPanel.ts` uses for
+ * its own graph updates. Opening the file is a no-op for a node with no
  * `filePath` (e.g. an external module); the graph panel sync still runs.
  */
 export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
@@ -163,7 +155,6 @@ export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
 	GraphPanel.selectNode(node.id);
 }
 
-/** Registers the Activity Bar tree view, its refresh/select commands, and triggers the initial load. Everything it creates is pushed onto `context.subscriptions`. */
 export function registerSidebar(context: vscode.ExtensionContext, options: SidebarOptions): ProjectGraphTreeProvider {
 	const provider = new ProjectGraphTreeProvider(options);
 	const treeView = vscode.window.createTreeView(SIDEBAR_VIEW_ID, {

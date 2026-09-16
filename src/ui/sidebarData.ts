@@ -1,6 +1,4 @@
-// Pure mapping from the Project Graph Core's stored shape to the sidebar's
-// file/module/symbol navigation tree (Fase 1.1, Epic A). Kept free of any
-// `vscode` dependency, like `graphData.ts`, so it can be unit tested directly
+// Kept free of any `vscode` dependency so it can be unit tested directly
 // against `StoredGraph` fixtures; `sidebarView.ts` wraps this in a
 // `vscode.TreeDataProvider`.
 //

@@ -1,12 +1,10 @@
-// "Project Graph: Design Project" (Epic 9): lets a user describe intent for
-// a new project/feature — structured fields plus free text (task 1, see
-// `collectProjectIntent`) — and turns it into a Proposed Graph via Claude
-// (tasks 2-4, see ../design). `designProject` is the pure orchestration the
-// command (task 5, registered in ../extension.ts) wraps with progress
-// reporting and error/completion messages, the same split ../ui/analyzeWorkspace
-// and ../ui/impact use. Updating the store also reconciles the new proposal
-// against the Observed Graph already there (Epic 10, see ../core/comparison),
-// so parts of it that already exist in the code come back tagged `matched`
+// Lets a user describe intent for a new project/feature and turns it into a
+// Proposed Graph via Claude. `designProject` is the pure orchestration the
+// command (registered in ../extension.ts) wraps with progress reporting and
+// error/completion messages, the same split ../ui/analyzeWorkspace and
+// ../ui/impact use. Updating the store also reconciles the new proposal
+// against the Observed Graph already there (see ../core/comparison), so
+// parts of it that already exist in the code come back tagged `matched`
 // instead of `proposed_only`.
 import * as vscode from 'vscode';
 import { reconcileProposedGraph } from '../core/comparison';
@@ -30,7 +28,7 @@ export interface DesignProjectResult {
 	/** Total nodes/edges in the proposal Claude returned, matched or not. */
 	nodeCount: number;
 	edgeCount: number;
-	/** How many of those already exist in the Observed Graph (Epic 10 comparison). */
+	/** How many of those already exist in the Observed Graph. */
 	matchedNodeCount: number;
 	matchedEdgeCount: number;
 }
@@ -38,8 +36,8 @@ export interface DesignProjectResult {
 /**
  * Asks Claude to propose an architecture for `intent`, replaces the Project
  * Graph store's Proposed Graph with the result, and reconciles it against
- * the Observed Graph already there (`reconcileProposedGraph`, Epic 10) so
- * parts of the proposal that already exist in the code are tagged `matched`
+ * the Observed Graph already there (`reconcileProposedGraph`) so parts of
+ * the proposal that already exist in the code are tagged `matched`
  * rather than `proposed_only`. Kept free of any `vscode` dependency, like
  * `analyzeWorkspace.ts`, so it can be exercised directly in tests with a
  * fake `claudeClient`; the command registered in `extension.ts` is a thin
@@ -96,7 +94,7 @@ the notification and click "${USE_DESCRIPTION_ACTION}".
 `;
 
 /**
- * The intent form (Epic 9, task 1): a project/feature name and primary
+ * The intent form: a project/feature name and primary
  * stack via QuickInput, optional key components as a short structured
  * field, and a free-text description composed in a scratch editor (VS
  * Code's input box is single-line, so a real editor is the only way to let

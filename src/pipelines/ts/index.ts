@@ -15,8 +15,8 @@ export interface RunTsPipelineOptions {
 	/**
 	 * Absolute paths of every source file known to belong to the project.
 	 * Only needed when `files` is a subset of the project (e.g. a single
-	 * changed file for an incremental update, Epic 5) so imports to sibling
-	 * files not in `files` still resolve to their file node instead of an
+	 * changed file for an incremental update) so imports to sibling files not
+	 * in `files` still resolve to their file node instead of an
 	 * external-module node. Defaults to `files` itself.
 	 */
 	knownFiles?: string[];

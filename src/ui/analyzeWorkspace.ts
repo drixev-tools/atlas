@@ -23,13 +23,13 @@ export interface AnalyzeWorkspaceResult {
  * Runs the TS/JS and Python extraction pipelines over `rootDir` and replaces
  * the Project Graph store's contents with their combined, de-duplicated
  * output (see `populateProjectGraph`). This is the full-rebuild counterpart
- * to the incremental updates `ProjectGraphWatcher` (Epic 5) applies as files
- * change, and is what the "Project Graph: Analyze Workspace" command runs.
+ * to the incremental updates `ProjectGraphWatcher` applies as files change,
+ * and is what the "Project Graph: Analyze Workspace" command runs.
  *
- * Kept free of any `vscode` dependency, like `graphData.ts`, so it can be
- * exercised directly in tests; the command registered in `extension.ts` is a
- * thin wrapper that supplies progress reporting, the workspace folder, and
- * error/completion messages.
+ * Kept free of any `vscode` dependency so it can be exercised directly in
+ * tests; the command registered in `extension.ts` is a thin wrapper that
+ * supplies progress reporting, the workspace folder, and error/completion
+ * messages.
  */
 export async function analyzeWorkspace(options: AnalyzeWorkspaceOptions): Promise<AnalyzeWorkspaceResult> {
 	const { rootDir, dbPath, onProgress } = options;

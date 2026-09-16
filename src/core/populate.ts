@@ -5,9 +5,8 @@ import { ProjectGraphStore } from './store';
 export interface PopulateProjectGraphOptions {
 	/**
 	 * Status to tag every populated node/edge with. Defaults to
-	 * `observed_only` since, until Epic 10 wires up the Proposed-vs-Observed
-	 * comparison, everything the extraction pipelines produce describes real
-	 * code, not a design proposal.
+	 * `observed_only` since everything the extraction pipelines produce
+	 * describes real code, not a design proposal.
 	 */
 	status?: GraphStatus;
 }
@@ -35,11 +34,11 @@ export function populateProjectGraph(
 /**
  * Replaces just the Proposed Graph slice of the store — every node/edge
  * currently tagged `proposed_only` — with `graph`, leaving the Observed
- * Graph (and anything Epic 10 has already tagged `matched`) untouched. This
- * is what the "Project Graph: Design Project" command (Epic 9) needs: each
- * run reflects only the latest intent's proposal instead of accumulating
- * every past one, while still coexisting with whatever "Analyze Workspace"
- * already found in the code.
+ * Graph (and anything already tagged `matched`) untouched. This is what the
+ * "Project Graph: Design Project" command needs: each run reflects only the
+ * latest intent's proposal instead of accumulating every past one, while
+ * still coexisting with whatever "Analyze Workspace" already found in the
+ * code.
  */
 export function populateProposedGraph(store: ProjectGraphStore, graph: CodeGraph): void {
 	store.clearByStatus('proposed_only');

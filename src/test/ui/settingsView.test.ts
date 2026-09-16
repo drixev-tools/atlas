@@ -34,9 +34,7 @@ function fakeClaudeSettingsStore(initial?: { apiKey?: string; model?: string }):
  * A minimal stand-in for `vscode.WebviewView`, covering only what
  * `SettingsViewProvider` touches (`webview.options`/`.html`/
  * `.onDidReceiveMessage`/`.postMessage`/`.cspSource`) — there is no lighter
- * way to exercise its message handling without a real webview host, the
- * same tradeoff the removed Cytoscape webview tests made before Fase 1.2,
- * Epic D.
+ * way to exercise its message handling without a real webview host.
  */
 function fakeWebviewView(): {
 	webviewView: vscode.WebviewView;

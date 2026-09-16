@@ -1,5 +1,5 @@
-// vscode.git integration (Epic 8, task 2): reads the workspace's currently
-// uncommitted files, for "Calculate Impact" (./impact, ../ui/impact) to seed
+// vscode.git integration: reads the workspace's currently uncommitted
+// files, for "Calculate Impact" (./impact, ../ui/impact) to seed
 // its impact analysis from. See ./gitExtensionApi for the (vendored) shape of
 // the extension's API this talks to.
 import * as path from 'path';

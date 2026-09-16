@@ -1,10 +1,9 @@
-// Hierarchical layout (Fase 1.2, Epic F task 3) for whatever subset of the
-// workflow-relevant graph (Epic E) is currently visible in the React Flow
-// webview: positions nodes top-to-bottom by dagre's rank, same engine
-// `cytoscape-dagre` used to drive before the Cytoscape retirement (Epic D).
-// A pure function over plain node/edge ids — no `dagre.graphlib.Graph`,
-// `StoredGraph`, or React Flow type leaks past its return value — so it can
-// be unit tested directly and reused for any node/edge shape.
+// Hierarchical layout for whatever subset of the workflow-relevant graph is
+// currently visible in the React Flow webview: positions nodes top-to-bottom
+// by dagre's rank. A pure function over plain node/edge ids — no
+// `dagre.graphlib.Graph`, `StoredGraph`, or React Flow type leaks past its
+// return value — so it can be unit tested directly and reused for any
+// node/edge shape.
 import dagre from 'dagre';
 
 export interface LayoutPosition {

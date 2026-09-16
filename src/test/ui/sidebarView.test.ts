@@ -21,7 +21,7 @@ function writeFile(dir: string, name: string, contents: string): string {
 	return filePath;
 }
 
-suite('Sidebar Panel (Fase 1.1, Epic A)', () => {
+suite('Sidebar Panel', () => {
 	test('activation registers the sidebar refresh and select-node commands', async () => {
 		const commands = await vscode.commands.getCommands(true);
 		assert.ok(commands.includes(REFRESH_SIDEBAR_COMMAND));

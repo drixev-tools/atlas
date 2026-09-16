@@ -1,6 +1,6 @@
 // Common graph model produced by every extraction pipeline (TS/JS, and later
-// Python). Keeping this pipeline-agnostic lets persistence (Epic 4) and the
-// renderer (Epic 6) work against a single shape regardless of source language.
+// Python). Keeping this pipeline-agnostic lets persistence and the renderer
+// work against a single shape regardless of source language.
 
 export const NODE_KINDS = [
 	'file',

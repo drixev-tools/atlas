@@ -1,5 +1,5 @@
-// Root React component of the Project Graph webview (Fase 1.2, Epic F).
-// Owns the graph state received over `postMessage` (./protocol) and derives,
+// Root React component of the Project Graph webview. Owns the graph state
+// received over `postMessage` (./protocol) and derives,
 // on every render, the currently visible subgraph (./graphExpansion) and its
 // hierarchical layout (./graphLayout) — both pure, unit-tested modules
 // shared with the extension host side where useful. Rendering itself is

@@ -1,5 +1,5 @@
 // Relates a code file to the test file(s) that exercise it, for the
-// "Calculate Impact" command (Epic 8) to fold into its impact set. A file is
+// "Calculate Impact" command to fold into its impact set. A file is
 // considered related two ways: it's imported by something that looks like a
 // test (structural, via `getStructuralConsumersForFile`), or its name follows
 // one of the common test-naming conventions paired to the code file's own

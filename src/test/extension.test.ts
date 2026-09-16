@@ -48,6 +48,6 @@ suite('Extension Test Suite', () => {
 	});
 
 	// The open-architecture command's actual behavior (opening/reviving the
-	// React Flow graph panel, Fase 1.2 Epic F) is covered in
-	// ui/graphPanel.test.ts, next to the `GraphPanel` it opens.
+	// React Flow graph panel) is covered in ui/graphPanel.test.ts, next to
+	// the `GraphPanel` it opens.
 });

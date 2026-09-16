@@ -1,12 +1,9 @@
 // The `postMessage` contract between the extension host (`../graphPanel.ts`)
-// and this webview (`./App.tsx`) — reused as-is from the Cytoscape.js
-// version retired in Fase 1.2, Epic D (see that commit's `graphPanel.ts`),
-// just with `elements: cytoscape.ElementDefinition[]` swapped for the
-// already workflow-filtered (Epic E) `StoredGraph` React Flow renders
-// directly. Defined once, in a module neither side needs anything else from
-// (`StoredGraph` itself has no `vscode` or React dependency), so both the
-// Node-platform extension bundle and the browser-platform webview bundle can
-// import it without pulling the other's runtime along.
+// and this webview (`./App.tsx`). Defined once, in a module neither side
+// needs anything else from (`StoredGraph` itself has no `vscode` or React
+// dependency), so both the Node-platform extension bundle and the
+// browser-platform webview bundle can import it without pulling the other's
+// runtime along.
 import { StoredGraph } from '../../core/store';
 
 export type HostToWebviewMessage =
@@ -17,7 +14,7 @@ export type HostToWebviewMessage =
 			focusNodeId: string | undefined;
 	  }
 	| {
-			/** Sidebar Panel (Fase 1.1, Epic A task 3): re-focuses the view on one node — its direct relations only — without waiting for a fresh `graph:update`. No-op in the webview if `nodeId` isn't in the currently loaded graph. */
+			/** Re-focuses the view on one node — its direct relations only — without waiting for a fresh `graph:update`. No-op in the webview if `nodeId` isn't in the currently loaded graph. */
 			type: 'graph:select';
 			nodeId: string;
 	  };
