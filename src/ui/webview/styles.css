@@ -382,3 +382,55 @@ body,
 	padding: 1px 5px;
 	border-radius: 8px;
 }
+
+.ag-flow-toolbar {
+	gap: 8px;
+}
+
+.ag-flow-toolbar label {
+	opacity: 0.75;
+}
+
+.ag-flow-toolbar select {
+	font: inherit;
+	color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+	background: var(--vscode-dropdown-background, var(--vscode-editorWidget-background));
+	border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border, transparent));
+	border-radius: 3px;
+	padding: 2px 4px;
+}
+
+.ag-flow-card {
+	position: relative;
+}
+
+.ag-flow-card-open {
+	align-self: flex-start;
+	font: inherit;
+	font-size: 10px;
+	color: var(--vscode-textLink-foreground);
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+.ag-flow-card-hint {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	width: 18px;
+	height: 18px;
+	line-height: 18px;
+	text-align: center;
+	border-radius: 50%;
+	background: var(--vscode-badge-background, #4d4d4d);
+	color: var(--vscode-badge-foreground, #ffffff);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.ag-flow-edge .react-flow__edge-path {
+	stroke: var(--vscode-charts-foreground, var(--vscode-foreground));
+}

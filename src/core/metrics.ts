@@ -14,6 +14,7 @@ export type UsageMetricEvent =
 	| 'openArchitecture'
 	| 'calculateImpact'
 	| 'showSequenceDiagram'
+	| 'showEntryPointFlow'
 	| 'designProject'
 	| 'incrementalUpdate';
 

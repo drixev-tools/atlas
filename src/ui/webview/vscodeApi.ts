@@ -1,8 +1,12 @@
 // Thin wrapper around the `acquireVsCodeApi()` global VS Code injects into
-// every webview, typed against this view's own `WebviewToHostMessage` half
-// of the shared contract (./protocol) so the rest of the webview never talks
-// to the raw API directly.
+// every webview, typed against every root component's own
+// `WebviewToHostMessage` half of its host contract (./protocol,
+// ./entryPointFlowProtocol) so the rest of the webview never talks to the
+// raw API directly. `acquireVsCodeApi()` can only be called once per webview
+// context, so this stays a single module-level instance shared by whichever
+// root component ./main.tsx actually renders.
 import { WebviewToHostMessage } from './protocol';
+import { EntryPointFlowWebviewToHostMessage } from './entryPointFlowProtocol';
 
 interface VsCodeApi {
 	postMessage(message: unknown): void;
@@ -14,6 +18,6 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 const vscodeApi = acquireVsCodeApi();
 
-export function postToHost(message: WebviewToHostMessage): void {
+export function postToHost(message: WebviewToHostMessage | EntryPointFlowWebviewToHostMessage): void {
 	vscodeApi.postMessage(message);
 }

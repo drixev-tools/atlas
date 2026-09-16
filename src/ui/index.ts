@@ -11,6 +11,8 @@ export * from './impact';
 export * from './impactView';
 export * from './sequenceDiagram';
 export * from './sequenceDiagramView';
+export * from './entryPointFlow';
+export * from './entryPointFlowPanel';
 export * from './designProject';
 export * from './designProjectView';
 export * from './sidebarData';

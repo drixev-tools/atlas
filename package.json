@@ -39,6 +39,10 @@
         "title": "Show Sequence Diagram"
       },
       {
+        "command": "agentGraph.showEntryPointFlow",
+        "title": "Project Graph: Show Entry Point Flow"
+      },
+      {
         "command": "agentGraph.designProject",
         "title": "Project Graph: Design Project"
       },

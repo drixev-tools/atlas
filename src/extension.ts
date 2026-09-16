@@ -8,6 +8,7 @@ import {
 	SecretStorageApiKeyStore,
 	VsCodeClaudeSettingsStore
 } from './design';
+import { detectEntryPoints, EntryPoint } from './core/entryPoints';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
 import { ProjectGraphStore, StoredNode } from './core/store';
@@ -24,6 +25,7 @@ import {
 	CALCULATE_IMPACT_COMMAND,
 	calculateImpact,
 	DESIGN_PROJECT_COMMAND,
+	EntryPointFlowPanel,
 	FOCUS_DESIGN_PROJECT_VIEW_COMMAND,
 	GraphPanel,
 	ImpactPanel,
@@ -34,13 +36,21 @@ import {
 	registerSettingsView,
 	registerSidebar,
 	SequenceDiagramPanel,
+	SHOW_ENTRY_POINT_FLOW_COMMAND,
 	SHOW_SEQUENCE_DIAGRAM_COMMAND,
 	SidebarTreeNode,
 	toImpactSummaryInput,
 	toSequenceDiagramContextInput
 } from './ui';
 
-export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND };
+export {
+	ANALYZE_WORKSPACE_COMMAND,
+	CALCULATE_IMPACT_COMMAND,
+	DESIGN_PROJECT_COMMAND,
+	OPEN_ARCHITECTURE_COMMAND,
+	SHOW_ENTRY_POINT_FLOW_COMMAND,
+	SHOW_SEQUENCE_DIAGRAM_COMMAND
+};
 
 /**
  * Reused across "Calculate Impact" invocations so its short git-status cache
@@ -67,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, (element: SidebarTreeNode | undefined) =>
 			runShowSequenceDiagramCommand(context, element)
 		),
+		vscode.commands.registerCommand(SHOW_ENTRY_POINT_FLOW_COMMAND, () => runShowEntryPointFlowCommand(context)),
 		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => vscode.commands.executeCommand(FOCUS_DESIGN_PROJECT_VIEW_COMMAND))
 	);
 
@@ -302,6 +313,49 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, e
 			}
 		}
 	);
+}
+
+/**
+ * "Show Entry Point Flow" — lets the user pick one of Epic M's detected
+ * entry points (skipping the picker when there's only one) and opens
+ * ../ui/entryPointFlowPanel showing what happens when it runs. Picking is
+ * also available inside the already-open view itself (its own entry-point
+ * dropdown), so re-running this command mainly matters for opening the view
+ * the first time or jumping straight to a specific entry point from the
+ * sidebar shortcut.
+ */
+async function runShowEntryPointFlowCommand(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'showEntryPointFlow');
+
+	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const entryPoints = detectEntryPoints(store);
+	if (entryPoints.length === 0) {
+		store.close();
+		void vscode.window.showInformationMessage(
+			'Project Graph: no entry points detected yet. Run "Project Graph: Analyze Workspace" first.'
+		);
+		return;
+	}
+
+	let selected: EntryPoint = entryPoints[0];
+	if (entryPoints.length > 1) {
+		const picked = await vscode.window.showQuickPick(
+			entryPoints.map((entryPoint) => ({
+				label: entryPoint.name,
+				description: entryPoint.kind,
+				detail: entryPoint.filePath,
+				entryPoint
+			})),
+			{ placeHolder: 'Select an entry point to trace its call flow' }
+		);
+		if (!picked) {
+			store.close();
+			return;
+		}
+		selected = picked.entryPoint;
+	}
+
+	EntryPointFlowPanel.createOrShow(context.extensionUri, store, selected.nodeId);
 }
 
 /**
