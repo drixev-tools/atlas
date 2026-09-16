@@ -51,8 +51,7 @@ suite('Extension Test Suite', () => {
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(CALCULATE_IMPACT_COMMAND)));
 	});
 
-	test('the design-project command reports an error instead of throwing when no folder is open', async () => {
-		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
+	test('the design-project command focuses the sidebar Design Project view instead of throwing', async () => {
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(DESIGN_PROJECT_COMMAND)));
 	});
 

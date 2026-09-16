@@ -10,6 +10,7 @@ export * from './impactView';
 export * from './sequenceDiagram';
 export * from './sequenceDiagramView';
 export * from './designProject';
+export * from './designProjectView';
 export * from './sidebarData';
 export * from './sidebarView';
 export * from './settingsView';

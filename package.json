@@ -65,6 +65,12 @@
           "icon": "media/activity-bar-icon.svg"
         },
         {
+          "id": "agentGraph.designProjectView",
+          "name": "Design Project",
+          "type": "webview",
+          "icon": "media/activity-bar-icon.svg"
+        },
+        {
           "id": "agentGraph.settings",
           "name": "AI Settings",
           "type": "webview",

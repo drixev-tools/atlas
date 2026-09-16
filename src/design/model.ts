@@ -1,5 +1,5 @@
 // Shared types for "Design Project": the structured-plus-free-text intent a
-// user fills in (../ui/designProject's `collectProjectIntent` collects it),
+// user fills in via the sidebar's Design Project form (../ui/designProjectView),
 // and the architecture Claude proposes in response (./claudeClient talks to
 // the API, ./proposedGraph converts the result into the pipeline-agnostic
 // graph model).

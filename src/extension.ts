@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
-	AnthropicClaudeDesignClient,
 	AnthropicClaudeImpactClient,
 	AnthropicClaudeSequenceDiagramClient,
 	AuthenticationError,
@@ -24,16 +23,14 @@ import {
 	CalculateImpactResult,
 	CALCULATE_IMPACT_COMMAND,
 	calculateImpact,
-	collectProjectIntent,
-	DesignProjectResult,
-	designProject,
 	DESIGN_PROJECT_COMMAND,
-	FOCUS_SETTINGS_VIEW_COMMAND,
+	FOCUS_DESIGN_PROJECT_VIEW_COMMAND,
 	GraphPanel,
 	ImpactPanel,
 	loadSequenceContext,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
+	registerDesignProjectView,
 	registerSettingsView,
 	registerSidebar,
 	SequenceDiagramPanel,
@@ -53,9 +50,10 @@ export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COM
 let gitStatusProvider: GitStatusProvider | undefined;
 
 /**
- * Sidebar Panel's Tree View provider, refreshed after any command that
- * changes the Project Graph (Analyze Workspace, Design Project)
- * so the tree doesn't go stale. `undefined` until `activate()` registers it.
+ * Sidebar Panel's Tree View provider, refreshed after anything that changes
+ * the Project Graph (the Analyze Workspace command, a Design Project
+ * submission) so the tree doesn't go stale. `undefined` until `activate()`
+ * registers it.
  */
 let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
 
@@ -69,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, (element: SidebarTreeNode | undefined) =>
 			runShowSequenceDiagramCommand(context, element)
 		),
-		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => runDesignProjectCommand(context))
+		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => vscode.commands.executeCommand(FOCUS_DESIGN_PROJECT_VIEW_COMMAND))
 	);
 
 	sidebarTreeProvider = registerSidebar(context, {
@@ -78,6 +76,14 @@ export function activate(context: vscode.ExtensionContext): void {
 	});
 
 	registerSettingsView(context, new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets)));
+
+	registerDesignProjectView(context, {
+		settings: new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets)),
+		resolveRootDir: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+		resolveDbPath: () => resolveGraphDbPath(context),
+		onSubmit: () => recordUsage(context, 'designProject'),
+		onDesigned: () => sidebarTreeProvider?.refresh()
+	});
 }
 
 export function deactivate(): void {
@@ -293,96 +299,6 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, e
 			}
 		}
 	);
-}
-
-const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';
-
-const OPEN_AI_SETTINGS_ACTION = 'Open AI Settings';
-
-/**
- * "Project Graph: Design Project" — collects intent for a new project or
- * feature (structured fields plus free text, see `collectProjectIntent`),
- * resolves the Anthropic API key and Claude model from the shared
- * `ClaudeSettingsStore` (../design/settings), and asks
- * Claude to turn that intent into a Proposed Graph. If no API key is
- * configured yet, this points the user at the AI Settings sidebar view
- * (../ui/settingsView) instead of prompting inline — that view is now the
- * only place the key is entered. See `designProject` for the underlying,
- * `vscode`-free orchestration this wraps once intent and settings are in
- * hand.
- */
-async function runDesignProjectCommand(context: vscode.ExtensionContext): Promise<void> {
-	recordUsage(context, 'designProject');
-
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (!folder) {
-		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before designing a project.');
-		return;
-	}
-
-	const intent = await collectProjectIntent();
-	if (!intent) {
-		return;
-	}
-
-	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
-	const settings = await resolveClaudeSettings(claudeSettings);
-	if (!settings) {
-		await promptToOpenAiSettings('an Anthropic API key is required to design a project');
-		return;
-	}
-
-	await vscode.window.withProgress(
-		{
-			location: vscode.ProgressLocation.Notification,
-			title: 'Project Graph: Designing project',
-			cancellable: false
-		},
-		async (progress) => {
-			try {
-				const result = await designProject({
-					rootDir: folder.uri.fsPath,
-					dbPath: resolveGraphDbPath(context),
-					intent,
-					claudeClient: new AnthropicClaudeDesignClient(settings.apiKey, settings.model),
-					onProgress: (message) => progress.report({ message })
-				});
-				await sidebarTreeProvider?.refresh();
-				await presentDesignProjectResult(result);
-			} catch (error) {
-				if (error instanceof AuthenticationError) {
-					await claudeSettings.clearApiKey();
-					await promptToOpenAiSettings('Anthropic rejected the stored API key — it has been cleared');
-					return;
-				}
-				void vscode.window.showErrorMessage(
-					`Project Graph: designing the project failed — ${error instanceof Error ? error.message : String(error)}`
-				);
-			}
-		}
-	);
-}
-
-/** Directs the user to the AI Settings sidebar view (../ui/settingsView) to configure/re-configure the Anthropic API key, e.g. after `promptToOpenAiSettings`'s callers find none stored or a stored one gets rejected. */
-async function promptToOpenAiSettings(reason: string): Promise<void> {
-	const choice = await vscode.window.showErrorMessage(
-		`Project Graph: ${reason} — configure it in the AI Settings sidebar view.`,
-		OPEN_AI_SETTINGS_ACTION
-	);
-	if (choice === OPEN_AI_SETTINGS_ACTION) {
-		await vscode.commands.executeCommand(FOCUS_SETTINGS_VIEW_COMMAND);
-	}
-}
-
-async function presentDesignProjectResult(result: DesignProjectResult): Promise<void> {
-	const choice = await vscode.window.showInformationMessage(
-		`Project Graph: proposed architecture ready — ${result.nodeCount} node(s), ${result.edgeCount} edge(s), ` +
-			`${result.matchedNodeCount} already in the code. Open the graph to review it.`,
-		OPEN_ARCHITECTURE_ACTION
-	);
-	if (choice === OPEN_ARCHITECTURE_ACTION) {
-		await vscode.commands.executeCommand(OPEN_ARCHITECTURE_COMMAND);
-	}
 }
 
 /**
