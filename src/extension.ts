@@ -135,16 +135,19 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 
 /**
  * "Project Graph: Open Architecture" — opens the React Flow graph panel
- * (`../ui/graphPanel`). Reveals and refreshes the existing panel if one is
- * already open, otherwise creates it; either
- * way it (re)focuses on the active editor's file and that file's direct
- * relations, per `GraphPanel`'s own `graph:update` handling.
+ * (`../ui/graphPanel`), which now opens on its layered-architecture view
+ * (`../ui/architectureLayers`) rather than the file-focused symbol view;
+ * drilling down eventually reaches that same file-focused view unchanged.
+ * Reveals and refreshes the existing panel if one is already open, otherwise
+ * creates it. `claudeSettings` lets the architecture view upgrade its
+ * folder-name group labels to Claude-generated ones in the background.
  */
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'openArchitecture');
 
 	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
-	GraphPanel.createOrShow(context.extensionUri, store);
+	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
+	GraphPanel.createOrShow(context.extensionUri, store, claudeSettings);
 }
 
 /**

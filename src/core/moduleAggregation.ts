@@ -5,7 +5,7 @@
 // depends on a live `ProjectGraphStore` or on React Flow.
 import * as path from 'path';
 import { DiagramModel, DiagramModelResult, DiagramNode, aggregateEdgesByEndpoint } from './diagramModel';
-import { StoredGraph } from './store';
+import { StoredGraph, StoredNode } from './store';
 
 export interface FolderAggregationOptions {
 	/** Workspace root file paths are grouped relative to. Falls back to grouping by each file's own absolute path when a file falls outside it. */
@@ -125,3 +125,44 @@ export function aggregateDiagramModelByFolder(graph: StoredGraph, options: Folde
 	const model: DiagramModel = { nodes: [...groupById.values()], edges };
 	return { model, filePathsByNodeId: filePathsByGroupId };
 }
+
+/**
+ * File-level `DiagramModel` for the architecture view's "files" drill-down:
+ * one `DiagramNode` per `file` node in `filePaths` (every file when omitted),
+ * with every other node resolved up to the file it belongs to before
+ * `aggregateEdgesByEndpoint` collapses edges onto file-to-file pairs — the
+ * same "resolve every node to a coarser id, then aggregate" shape
+ * `aggregateDiagramModelByFolder` uses for folders, one level shallower.
+ * `externalModule` nodes are excluded the same way, tallied instead as a
+ * file's `externalDependencies` metric.
+ */
+export function aggregateDiagramModelByFile(graph: StoredGraph, filePaths?: ReadonlySet<string>): DiagramModelResult {
+	const fileNodes = graph.nodes.filter(
+		(node): node is DiagramFileNode => node.kind === 'file' && Boolean(node.filePath) && (!filePaths || filePaths.has(node.filePath as string))
+	);
+
+	const fileIdByPath = new Map(fileNodes.map((node) => [node.filePath, node.id]));
+
+	const fileIdByNodeId = new Map<string, string>();
+	for (const node of graph.nodes) {
+		if (node.kind === 'externalModule' || !node.filePath) {
+			continue;
+		}
+		const fileId = fileIdByPath.get(node.filePath);
+		if (fileId) {
+			fileIdByNodeId.set(node.id, fileId);
+		}
+	}
+
+	const edges = aggregateEdgesByEndpoint(
+		graph.edges.filter((edge) => edge.kind !== 'contains'),
+		(nodeId) => fileIdByNodeId.get(nodeId)
+	);
+
+	const nodes: DiagramNode[] = fileNodes.map((node) => ({ id: node.id, kind: node.kind, label: node.name, filePath: node.filePath }));
+	const filePathsByNodeId = new Map<string, readonly string[]>(fileNodes.map((node) => [node.id, [node.filePath]]));
+
+	return { model: { nodes, edges }, filePathsByNodeId };
+}
+
+type DiagramFileNode = StoredNode & { filePath: string };

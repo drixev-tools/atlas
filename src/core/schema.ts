@@ -49,6 +49,13 @@ CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_status ON edges(status);
+
+CREATE TABLE IF NOT EXISTS layer_summaries (
+	group_id TEXT PRIMARY KEY,
+	label TEXT NOT NULL,
+	description TEXT NOT NULL,
+	members_hash TEXT NOT NULL
+);
 `;
 
 export function applySchema(db: Database): void {

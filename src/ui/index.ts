@@ -4,6 +4,8 @@ export * from './graphFocus';
 export * from './graphFilter';
 export * from './graphExpansion';
 export * from './graphLayout';
+export * from './diagramLayout';
+export * from './architectureLayers';
 export * from './analyzeWorkspace';
 export * from './impact';
 export * from './impactView';

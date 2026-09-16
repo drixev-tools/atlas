@@ -139,6 +139,21 @@ suite('ProjectGraphStore: CRUD', () => {
 		assert.strictEqual(store.listEdges().length, 0);
 	});
 
+	test('getLayerSummary returns undefined until one is set, then round-trips it', () => {
+		assert.strictEqual(store.getLayerSummary('group:ui'), undefined);
+
+		store.setLayerSummary('group:ui', { label: 'UI Layer', description: 'Renders the graph.', membersHash: 'abc' });
+
+		assert.deepStrictEqual(store.getLayerSummary('group:ui'), { label: 'UI Layer', description: 'Renders the graph.', membersHash: 'abc' });
+	});
+
+	test('setLayerSummary for an existing group id updates it in place rather than duplicating', () => {
+		store.setLayerSummary('group:ui', { label: 'UI Layer', description: 'Old.', membersHash: 'abc' });
+		store.setLayerSummary('group:ui', { label: 'UI Layer', description: 'New.', membersHash: 'def' });
+
+		assert.deepStrictEqual(store.getLayerSummary('group:ui'), { label: 'UI Layer', description: 'New.', membersHash: 'def' });
+	});
+
 	test('clearByStatus removes only the matching status, leaving the rest of the graph intact', () => {
 		store.upsertNode(makeFileNode('file:1', 'index.ts'));
 		store.upsertNode(makeFunctionNode('symbol:1', 'run', '/project/index.ts'), 'proposed_only');

@@ -1,14 +1,26 @@
 // The Project Graph's visual panel. Owns only the panel lifecycle and the
 // postMessage bridge (contract in `./webview/protocol`); the actual
 // node/edge data comes from `ProjectGraphStore`, collapsed to the workflow-
-// relevant hierarchy by `filterGraphForWorkflow`, and rendering/navigation
-// (hierarchical layout, focus, progressive expansion) happens entirely in
-// the webview script (`./webview/App.tsx`).
+// relevant hierarchy by `filterGraphForWorkflow` for the symbol-level view,
+// and to the folder/module-aggregated architecture view's data by
+// `./architectureLayers` (which this panel also asks, on demand, for a
+// group's file-level drill-down). Rendering/navigation across all of that —
+// hierarchical layout, focus, progressive expansion, level switching —
+// happens entirely in the webview script (`./webview/App.tsx`).
 import * as vscode from 'vscode';
-import { ProjectGraphStore } from '../core/store';
+import { ProjectGraphStore, StoredGraph } from '../core/store';
+import { AnthropicClaudeLayerNamingClient, AuthenticationError, ClaudeSettingsStore, resolveClaudeSettings } from '../design';
+import {
+	ArchitectureLayerGroup,
+	buildArchitectureFileLevelData,
+	buildArchitectureLayerData,
+	applyLayerNamingResults,
+	resolveCachedLayerLabels,
+	toLayerNamingTargets
+} from './architectureLayers';
 import { filterGraphForWorkflow } from './graphFilter';
 import { findInitialFocusNodeId } from './graphFocus';
-import { HostToWebviewMessage, WebviewToHostMessage } from './webview/protocol';
+import { ArchitectureLayerLabel, HostToWebviewMessage, WebviewToHostMessage } from './webview/protocol';
 
 const VIEW_TYPE = 'agentGraph.graphView';
 const VIEW_TITLE = 'Project Graph';
@@ -26,10 +38,14 @@ export class GraphPanel implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private disposed = false;
 
+	/** The architecture view's current leaf groups, keyed by group id, so `architecture:requestFiles` can look one up without recomputing the whole layer aggregation. Repopulated by every `postGraph()`. */
+	private groupsById = new Map<string, ArchitectureLayerGroup>();
+
 	private constructor(
 		private readonly panel: vscode.WebviewPanel,
 		private readonly extensionUri: vscode.Uri,
-		private store: ProjectGraphStore
+		private store: ProjectGraphStore,
+		private readonly claudeSettings: ClaudeSettingsStore | undefined
 	) {
 		this.panel.webview.html = this.renderHtml();
 		this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -40,8 +56,15 @@ export class GraphPanel implements vscode.Disposable {
 		);
 	}
 
-	/** Opens the graph view, or reveals and refreshes the existing one if it's already open. Takes ownership of `store` (closes it on dispose/replacement). */
-	static createOrShow(extensionUri: vscode.Uri, store: ProjectGraphStore): GraphPanel {
+	/**
+	 * Opens the graph view, or reveals and refreshes the existing one if it's
+	 * already open. Takes ownership of `store` (closes it on
+	 * dispose/replacement). `claudeSettings`, when given, lets the
+	 * architecture view upgrade its folder-name group labels to
+	 * Claude-generated ones in the background; omit it (as the existing
+	 * `GraphPanel` tests do) to keep the view on folder names only.
+	 */
+	static createOrShow(extensionUri: vscode.Uri, store: ProjectGraphStore, claudeSettings?: ClaudeSettingsStore): GraphPanel {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
 		if (GraphPanel.current) {
@@ -56,7 +79,7 @@ export class GraphPanel implements vscode.Disposable {
 			localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist', 'ui', 'webview')]
 		});
 
-		GraphPanel.current = new GraphPanel(panel, extensionUri, store);
+		GraphPanel.current = new GraphPanel(panel, extensionUri, store, claudeSettings);
 		return GraphPanel.current;
 	}
 
@@ -87,12 +110,14 @@ export class GraphPanel implements vscode.Disposable {
 			this.store.close();
 		}
 		this.store = store;
-		this.postGraph();
+		void this.postGraph();
 	}
 
 	private handleMessage(message: WebviewToHostMessage): void {
 		if (message?.type === 'graph:ready') {
-			this.postGraph();
+			void this.postGraph();
+		} else if (message?.type === 'architecture:requestFiles') {
+			this.postFiles(message.groupId);
 		}
 	}
 
@@ -102,16 +127,80 @@ export class GraphPanel implements vscode.Disposable {
 	 * is resolved from the *current* active editor at each of those moments
 	 * (both are, in effect, "opening the view"), against the
 	 * already workflow-filtered graph so it always names a node the webview
-	 * actually has.
+	 * actually has. The architecture view's group labels are sent with an
+	 * immediate folder-name (or last-known-good cached) fallback so this
+	 * never waits on Claude; `refreshLayerLabels` upgrades them afterwards,
+	 * in the background, for whichever groups actually need it.
 	 */
-	private postGraph(): void {
-		const graph = filterGraphForWorkflow(this.store.getGraph());
+	private async postGraph(): Promise<void> {
+		const graph = this.store.getGraph();
+		const workflowGraph = filterGraphForWorkflow(graph);
+		const rootDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+		const layers = buildArchitectureLayerData(this.store, graph, rootDir);
+		this.groupsById = new Map(layers.groups.map((group) => [group.groupId, group]));
+		const { labelsByGroupId, staleGroups } = resolveCachedLayerLabels(this.store, layers.groups);
+
 		const update: HostToWebviewMessage = {
 			type: 'graph:update',
-			graph,
-			focusNodeId: findInitialFocusNodeId(graph, vscode.window.activeTextEditor?.document.uri.fsPath)
+			graph: workflowGraph,
+			focusNodeId: findInitialFocusNodeId(workflowGraph, vscode.window.activeTextEditor?.document.uri.fsPath),
+			architecture: {
+				model: layers.model,
+				labelsByGroupId: mapToRecord(labelsByGroupId),
+				entryPointGroupIds: layers.entryPointGroupIds
+			}
 		};
 		void this.panel.webview.postMessage(update);
+
+		void this.refreshLayerLabels(graph, staleGroups);
+	}
+
+	private postFiles(groupId: string): void {
+		const group = this.groupsById.get(groupId);
+		if (!group) {
+			return;
+		}
+		const graph = this.store.getGraph();
+		const files = buildArchitectureFileLevelData(this.store, graph, group);
+		const message: HostToWebviewMessage = {
+			type: 'architecture:files',
+			payload: { groupId, model: files.model, entryPointFileIds: files.entryPointFileIds }
+		};
+		void this.panel.webview.postMessage(message);
+	}
+
+	/**
+	 * Names `staleGroups` via Claude (batched into one call) and, on success,
+	 * pushes a label patch to the already-open view — a no-op when there's
+	 * nothing stale, no `claudeSettings` was configured for this panel, or no
+	 * API key is stored yet. A rejected key is cleared, like every other
+	 * Claude-backed feature (see `extension.ts`'s `presentImpactResult`); any
+	 * other failure just leaves the fallback labels in place; this is a
+	 * background enhancement, not something worth surfacing an error for.
+	 */
+	private async refreshLayerLabels(graph: StoredGraph, staleGroups: ArchitectureLayerGroup[]): Promise<void> {
+		if (staleGroups.length === 0 || !this.claudeSettings) {
+			return;
+		}
+		const settings = await resolveClaudeSettings(this.claudeSettings);
+		if (!settings) {
+			return;
+		}
+
+		try {
+			const client = new AnthropicClaudeLayerNamingClient(settings.apiKey, settings.model);
+			const results = await client.nameLayers(toLayerNamingTargets(graph, staleGroups));
+			const patch = applyLayerNamingResults(this.store, staleGroups, results);
+			if (patch.size > 0 && !this.disposed) {
+				const message: HostToWebviewMessage = { type: 'architecture:labels', labelsByGroupId: mapToRecord(patch) };
+				void this.panel.webview.postMessage(message);
+			}
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				await this.claudeSettings.clearApiKey();
+			}
+		}
 	}
 
 	private postSelect(nodeId: string): void {
@@ -156,4 +245,8 @@ function getNonce(): string {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
+}
+
+function mapToRecord(map: ReadonlyMap<string, ArchitectureLayerLabel>): Record<string, ArchitectureLayerLabel> {
+	return Object.fromEntries(map);
 }

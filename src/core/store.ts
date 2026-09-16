@@ -70,6 +70,17 @@ function rowToNode(row: ParamsObject): StoredNode {
 	return node;
 }
 
+export interface LayerSummary {
+	label: string;
+	description: string;
+	/** Hash of the sorted file paths the labeled group covers when this summary was generated, so a caller can tell a cached summary is stale without recomputing it itself. */
+	membersHash: string;
+}
+
+function rowToLayerSummary(row: ParamsObject): LayerSummary {
+	return { label: row.label as string, description: row.description as string, membersHash: row.members_hash as string };
+}
+
 function rowToEdge(row: ParamsObject): StoredEdge {
 	const edge: StoredEdge = {
 		id: row.id as string,
@@ -302,6 +313,29 @@ export class ProjectGraphStore {
 	clearByStatus(status: GraphStatus): void {
 		this.db.run('DELETE FROM edges WHERE status = ?', [status]);
 		this.db.run('DELETE FROM nodes WHERE status = ?', [status]);
+	}
+
+	/** Cached Claude-generated name/description for an architecture-view group (`../ui/architectureLayers`), keyed by that group's id. `undefined` when never cached. */
+	getLayerSummary(groupId: string): LayerSummary | undefined {
+		const stmt = this.db.prepare('SELECT * FROM layer_summaries WHERE group_id = ?');
+		try {
+			stmt.bind([groupId]);
+			return stmt.step() ? rowToLayerSummary(stmt.getAsObject()) : undefined;
+		} finally {
+			stmt.free();
+		}
+	}
+
+	setLayerSummary(groupId: string, summary: LayerSummary): void {
+		this.db.run(
+			`INSERT INTO layer_summaries (group_id, label, description, members_hash)
+			 VALUES (?, ?, ?, ?)
+			 ON CONFLICT(group_id) DO UPDATE SET
+				label = excluded.label,
+				description = excluded.description,
+				members_hash = excluded.members_hash`,
+			[groupId, summary.label, summary.description, summary.membersHash]
+		);
 	}
 
 	private queryNodes(sql: string, params: BindParams): StoredNode[] {

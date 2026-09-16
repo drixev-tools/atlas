@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { StoredEdge, StoredGraph, StoredNode } from '../../core/store';
-import { aggregateDiagramModelByFolder } from '../../core/moduleAggregation';
+import { aggregateDiagramModelByFile, aggregateDiagramModelByFolder } from '../../core/moduleAggregation';
 import { NodeKind } from '../../pipelines/model';
 
 const ROOT = path.join('project');
@@ -105,5 +105,54 @@ suite('aggregateDiagramModelByFolder', () => {
 
 		assert.deepStrictEqual(model.edges, []);
 		assert.deepStrictEqual(model.nodes.map((n) => n.id), ['group:ui']);
+	});
+});
+
+suite('aggregateDiagramModelByFile', () => {
+	test('produces one DiagramNode per file, resolving symbol-level edges to their owning file', () => {
+		const uiFile = fileNode(path.join('ui', 'a.ts'));
+		const coreFile = fileNode(path.join('core', 'b.ts'));
+		const uiFunc = node('func:ui', 'function', 'render', uiFile.filePath);
+		const coreFunc = node('func:core', 'function', 'run', coreFile.filePath);
+
+		const graph: StoredGraph = {
+			nodes: [uiFile, coreFile, uiFunc, coreFunc],
+			edges: [edge('calls:1', 'calls', uiFunc.id, coreFunc.id), edge('contains:1', 'contains', uiFile.id, uiFunc.id)]
+		};
+
+		const { model, filePathsByNodeId } = aggregateDiagramModelByFile(graph);
+
+		assert.deepStrictEqual(
+			model.nodes.map((n) => n.id).sort(),
+			[uiFile.id, coreFile.id].sort()
+		);
+		assert.strictEqual(model.edges.length, 1);
+		assert.strictEqual(model.edges[0].source, uiFile.id);
+		assert.strictEqual(model.edges[0].target, coreFile.id);
+		assert.deepStrictEqual(filePathsByNodeId.get(uiFile.id), [uiFile.filePath]);
+	});
+
+	test('restricts the result to the given file paths when provided', () => {
+		const uiFile = fileNode(path.join('ui', 'a.ts'));
+		const coreFile = fileNode(path.join('core', 'b.ts'));
+		const graph: StoredGraph = { nodes: [uiFile, coreFile], edges: [] };
+
+		const { model } = aggregateDiagramModelByFile(graph, new Set([uiFile.filePath as string]));
+
+		assert.deepStrictEqual(model.nodes.map((n) => n.id), [uiFile.id]);
+	});
+
+	test('drops edges to an externalModule node instead of creating a file-to-file edge', () => {
+		const uiFile = fileNode(path.join('ui', 'a.ts'));
+		const external = node('external:vscode', 'externalModule', 'vscode');
+		const graph: StoredGraph = {
+			nodes: [uiFile, external],
+			edges: [edge('imports:1', 'imports', uiFile.id, external.id)]
+		};
+
+		const { model } = aggregateDiagramModelByFile(graph);
+
+		assert.deepStrictEqual(model.edges, []);
+		assert.deepStrictEqual(model.nodes.map((n) => n.id), [uiFile.id]);
 	});
 });
