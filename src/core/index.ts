@@ -11,3 +11,7 @@ export * from './gitExtensionApi';
 export * from './gitStatus';
 export * from './comparison';
 export * from './metrics';
+export * from './diagramModel';
+export * from './moduleAggregation';
+export * from './diagramMetrics';
+export * from './entryPoints';
