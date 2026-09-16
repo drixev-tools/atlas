@@ -191,6 +191,28 @@ suite('filterGraphForWorkflow', () => {
 		assert.deepStrictEqual(filterGraphForWorkflow(graph).edges, []);
 	});
 
+	test('keeps calls/extends/implements/instantiates edges between workflow-relevant nodes unchanged', () => {
+		const graph: StoredGraph = {
+			nodes: [node('function:f1', 'function'), node('function:f2', 'function'), node('class:C1', 'class'), node('class:C2', 'class')],
+			edges: [
+				edge('e1', 'function:f1', 'function:f2', 'calls'),
+				edge('e2', 'class:C1', 'class:C2', 'extends'),
+				edge('e3', 'function:f1', 'class:C1', 'instantiates')
+			]
+		};
+
+		assert.deepStrictEqual(filterGraphForWorkflow(graph).edges, graph.edges);
+	});
+
+	test('drops an implements edge sourced from a hidden interface with no reachable workflow node', () => {
+		const graph: StoredGraph = {
+			nodes: [node('interface:A', 'interface'), node('interface:B', 'interface')],
+			edges: [edge('e1', 'interface:A', 'interface:B', 'extends')]
+		};
+
+		assert.deepStrictEqual(filterGraphForWorkflow(graph).edges, []);
+	});
+
 	test('leaves an already fully workflow-relevant graph untouched', () => {
 		const graph: StoredGraph = {
 			nodes: [node('file:a', 'file'), node('class:C', 'class'), node('method:m', 'method')],

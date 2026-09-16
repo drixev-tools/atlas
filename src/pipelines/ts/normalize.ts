@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as ts from 'typescript';
 import { CodeGraph, GraphEdge, GraphNode, NodeKind, createEmptyGraph } from '../model';
-import { ExtractedFile, ExtractedSymbol } from './extractor';
+import { ExtractedDeclarationRef, ExtractedFile, ExtractedRange, ExtractedSymbol } from './extractor';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -9,6 +9,10 @@ function fileNodeId(filePath: string): string {
 
 function externalNodeId(moduleSpecifier: string): string {
 	return `external:${moduleSpecifier}`;
+}
+
+function symbolNodeId(fileId: string, range: Pick<ExtractedRange, 'startLine' | 'startColumn'>, name: string): string {
+	return `symbol:${fileId}:${range.startLine}:${range.startColumn}:${name}`;
 }
 
 function symbolKindToNodeKind(kind: ExtractedSymbol['kind']): NodeKind {
@@ -51,6 +55,40 @@ export interface NormalizeToGraphOptions {
 }
 
 /**
+ * Resolves a declaration the type checker pointed to (from a call, heritage
+ * clause, or import binding) to the graph node id it corresponds to.
+ *
+ * When the declaring file is part of this extraction batch (`batchFileIds`),
+ * the target must match one of that file's own extracted symbols exactly —
+ * anything else (a resolution into a declaration kind extraction doesn't
+ * track, e.g. a parameter) is discarded rather than guessed at.
+ *
+ * When the declaring file is only known from a prior run (`knownFileIds` but
+ * not `batchFileIds` — the incremental single-file case), that file's own
+ * symbols were never re-extracted this run, so there is nothing to check the
+ * target against; it is trusted the same way a plain file-to-file import
+ * already trusts `knownFileIds` without re-verifying the target file's
+ * contents.
+ */
+function resolveDeclarationRefTarget(
+	target: ExtractedDeclarationRef,
+	batchFileIds: ReadonlySet<string>,
+	knownFileIds: ReadonlySet<string>,
+	knownSymbolIds: ReadonlySet<string>
+): string | undefined {
+	const targetFileId = fileNodeId(target.filePath);
+	if (!knownFileIds.has(targetFileId)) {
+		return undefined;
+	}
+
+	const targetSymbolId = symbolNodeId(targetFileId, target.range, target.name);
+	if (batchFileIds.has(targetFileId)) {
+		return knownSymbolIds.has(targetSymbolId) ? targetSymbolId : undefined;
+	}
+	return targetSymbolId;
+}
+
+/**
  * Converts the intermediate TS/JS extraction result into the pipeline-agnostic
  * graph model, resolving relative imports to sibling file nodes (via the TS
  * module resolution algorithm) and collapsing everything else — packages,
@@ -63,10 +101,8 @@ export function normalizeToGraph(
 ): CodeGraph {
 	const graph = createEmptyGraph();
 	const compilerOptions = program.getCompilerOptions();
-	const knownFileIds = new Set([
-		...files.map((f) => fileNodeId(f.filePath)),
-		...(options.knownFilePaths ?? []).map(fileNodeId)
-	]);
+	const batchFileIds = new Set(files.map((f) => fileNodeId(f.filePath)));
+	const knownFileIds = new Set([...batchFileIds, ...(options.knownFilePaths ?? []).map(fileNodeId)]);
 	const externalNodeIds = new Set<string>();
 
 	const addNode = (node: GraphNode): void => {
@@ -86,6 +122,8 @@ export function normalizeToGraph(
 		return id;
 	};
 
+	const knownSymbolIds = new Set<string>();
+
 	for (const file of files) {
 		const fileId = fileNodeId(file.filePath);
 		addNode({
@@ -96,12 +134,11 @@ export function normalizeToGraph(
 			language: file.language
 		});
 
-		const symbolIdByDeclaration = new Map<ExtractedSymbol, string>();
 		const symbolIdByName = new Map<string, string>();
 
 		for (const symbol of file.symbols) {
-			const symbolId = `symbol:${fileId}:${symbol.range.startLine}:${symbol.range.startColumn}:${symbol.name}`;
-			symbolIdByDeclaration.set(symbol, symbolId);
+			const symbolId = symbolNodeId(fileId, symbol.range, symbol.name);
+			knownSymbolIds.add(symbolId);
 			if (!symbol.parentName) {
 				symbolIdByName.set(symbol.name, symbolId);
 			}
@@ -134,14 +171,13 @@ export function normalizeToGraph(
 				});
 			}
 		}
+	}
+
+	for (const file of files) {
+		const fileId = fileNodeId(file.filePath);
 
 		for (const imp of file.imports) {
-			const resolution = resolveModuleSpecifier(
-				imp.moduleSpecifier,
-				file.filePath,
-				compilerOptions,
-				knownFileIds
-			);
+			const resolution = resolveModuleSpecifier(imp.moduleSpecifier, file.filePath, compilerOptions, knownFileIds);
 			if (resolution.isExternal) {
 				ensureExternalNode(imp.moduleSpecifier);
 			}
@@ -158,18 +194,27 @@ export function normalizeToGraph(
 					isRequire: imp.isRequire
 				}
 			});
+
+			for (const resolvedSymbol of imp.resolvedSymbols) {
+				const targetSymbolId = resolveDeclarationRefTarget(resolvedSymbol, batchFileIds, knownFileIds, knownSymbolIds);
+				if (!targetSymbolId) {
+					continue;
+				}
+				addEdge({
+					id: `imports:${fileId}:${targetSymbolId}`,
+					kind: 'imports',
+					source: fileId,
+					target: targetSymbolId,
+					metadata: { name: resolvedSymbol.name, moduleSpecifier: imp.moduleSpecifier }
+				});
+			}
 		}
 
 		for (const exp of file.exports) {
 			if (!exp.fromModule) {
 				continue;
 			}
-			const resolution = resolveModuleSpecifier(
-				exp.fromModule,
-				file.filePath,
-				compilerOptions,
-				knownFileIds
-			);
+			const resolution = resolveModuleSpecifier(exp.fromModule, file.filePath, compilerOptions, knownFileIds);
 			if (resolution.isExternal) {
 				ensureExternalNode(exp.fromModule);
 			}
@@ -180,6 +225,24 @@ export function normalizeToGraph(
 				source: fileId,
 				target: resolution.nodeId,
 				metadata: { name: exp.name, fromModule: exp.fromModule }
+			});
+		}
+
+		for (const relation of file.relations) {
+			const fromId = symbolNodeId(fileId, relation.from.range, relation.from.name);
+			const targetId = resolveDeclarationRefTarget(relation.target, batchFileIds, knownFileIds, knownSymbolIds);
+			if (!targetId || fromId === targetId) {
+				continue;
+			}
+
+			const order = relation.metadata?.order;
+			const idSuffix = typeof order === 'number' ? `:${order}` : '';
+			addEdge({
+				id: `${relation.kind}:${fromId}:${targetId}${idSuffix}`,
+				kind: relation.kind,
+				source: fromId,
+				target: targetId,
+				metadata: relation.metadata
 			});
 		}
 	}

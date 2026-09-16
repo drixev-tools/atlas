@@ -102,6 +102,33 @@ suite('incremental: TS/JS single-file updates', () => {
 		assert.ok(store.getNode(`file:${indexPath}`), "expected index.ts's own file node to be untouched by math.ts's deletion");
 	});
 
+	test('re-parsing the caller alone still resolves a calls edge into an un-reparsed sibling file', () => {
+		const knownFiles = knownProjectFiles(store);
+		const graph = runTsPipeline(tmpDir, { files: [indexPath], knownFiles });
+		applyFileGraph(store, indexPath, graph);
+
+		const runFn = store.listNodes({ kind: 'function' }).find((n) => n.name === 'run');
+		const addFn = store.listNodes({ kind: 'function' }).find((n) => n.name === 'add');
+		assert.ok(runFn && addFn);
+
+		const callEdge = store.listEdges({ kind: 'calls' }).find((e) => e.source === runFn!.id && e.target === addFn!.id);
+		assert.ok(callEdge, "expected run()'s call into math.ts's add(), which was not re-parsed, to still resolve");
+	});
+
+	test('re-parsing an un-reparsed callee leaves a calls edge sourced from another file untouched', () => {
+		const runFnBefore = store.listNodes({ kind: 'function' }).find((n) => n.name === 'run');
+		const addFnBefore = store.listNodes({ kind: 'function' }).find((n) => n.name === 'add');
+		const callEdgeBefore = store.listEdges({ kind: 'calls' }).find((e) => e.source === runFnBefore!.id && e.target === addFnBefore!.id);
+		assert.ok(callEdgeBefore, 'expected the initial full scan to have produced a calls edge from run() to add()');
+
+		writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\nexport function unused(): void {}\n');
+		const knownFiles = knownProjectFiles(store);
+		const graph = runTsPipeline(tmpDir, { files: [mathPath], knownFiles });
+		applyFileGraph(store, mathPath, graph);
+
+		assert.ok(store.getEdge(callEdgeBefore!.id), "expected index.ts's calls edge, not sourced from math.ts, to survive math.ts's re-parse");
+	});
+
 	test('adding a new file inserts its nodes/edges and resolves imports to already-known siblings', () => {
 		const utilsPath = writeFile(tmpDir, 'utils.ts', "import { add } from './math';\nexport function double(n: number): number { return add(n, n); }\n");
 

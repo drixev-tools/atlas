@@ -55,7 +55,7 @@ suite('parseProposedArchitecture', () => {
 						{ ref: 'a', kind: 'file', name: 'a.ts' },
 						{ ref: 'b', kind: 'file', name: 'b.ts' }
 					],
-					edges: [{ kind: 'calls', sourceRef: 'a', targetRef: 'b' }]
+					edges: [{ kind: 'banana', sourceRef: 'a', targetRef: 'b' }]
 				}),
 			/edges\[0\]\.kind/
 		);

@@ -90,4 +90,64 @@ suite('TS pipeline: end to end', () => {
 		const graph = runTsPipeline(tmpDir);
 		assert.deepStrictEqual(graph, { nodes: [], edges: [] });
 	});
+
+	test('produces calls, extends, implements, and instantiates edges across files', () => {
+		writeFile(
+			tmpDir,
+			'shapes.ts',
+			[
+				'export interface Shape {}',
+				'export class Base {',
+				'  describe(): void {}',
+				'}',
+				'export class Circle extends Base implements Shape {',
+				'  describe(): void { super.describe(); }',
+				'}'
+			].join('\n')
+		);
+		writeFile(
+			tmpDir,
+			'index.ts',
+			["import { Circle } from './shapes';", '', 'export function run(): void {', '  new Circle().describe();', '}'].join('\n')
+		);
+
+		const graph = runTsPipeline(tmpDir);
+		const nodeByName = (kind: GraphNode['kind'], name: string) => graph.nodes.find((n) => n.kind === kind && n.name === name);
+		const hasEdge = (predicate: (edge: GraphEdge) => boolean) => graph.edges.some(predicate);
+
+		const circleClass = nodeByName('class', 'Circle');
+		const baseClass = nodeByName('class', 'Base');
+		const shapeInterface = nodeByName('interface', 'Shape');
+		const runFn = nodeByName('function', 'run');
+		const circleDescribe = graph.nodes.find(
+			(n) => n.kind === 'method' && n.name === 'describe' && hasEdge((e) => e.kind === 'contains' && e.source === circleClass?.id && e.target === n.id)
+		);
+
+		assert.ok(circleClass && baseClass && shapeInterface && runFn && circleDescribe);
+
+		assert.ok(hasEdge((e) => e.kind === 'extends' && e.source === circleClass!.id && e.target === baseClass!.id));
+		assert.ok(hasEdge((e) => e.kind === 'implements' && e.source === circleClass!.id && e.target === shapeInterface!.id));
+		assert.ok(hasEdge((e) => e.kind === 'instantiates' && e.source === runFn!.id && e.target === circleClass!.id));
+		assert.ok(hasEdge((e) => e.kind === 'calls' && e.source === runFn!.id && e.target === circleDescribe!.id));
+	});
+
+	test('produces a symbol-level imports edge to the imported declaration, in addition to the file-level edge', () => {
+		writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
+		writeFile(tmpDir, 'index.ts', "import { add as sum } from './math';\nexport function run(): number { return sum(1, 2); }\n");
+
+		const graph = runTsPipeline(tmpDir);
+		const indexFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'index.ts');
+		const addFn = graph.nodes.find((n) => n.kind === 'function' && n.name === 'add');
+
+		assert.ok(indexFile && addFn);
+		assert.ok(graph.edges.some((e) => e.kind === 'imports' && e.source === indexFile!.id && e.target === addFn!.id));
+	});
+
+	test('discards a call resolved into an external module instead of pointing it at an external node', () => {
+		writeFile(tmpDir, 'index.ts', ["import * as path from 'path';", 'export function run(): string {', '  return path.join("a", "b");', '}'].join('\n'));
+
+		const graph = runTsPipeline(tmpDir);
+
+		assert.strictEqual(graph.edges.filter((e) => e.kind === 'calls').length, 0);
+	});
 });

@@ -18,7 +18,7 @@ export const NODE_KINDS = [
 
 export type NodeKind = (typeof NODE_KINDS)[number];
 
-export const EDGE_KINDS = ['contains', 'imports', 'exports'] as const;
+export const EDGE_KINDS = ['contains', 'imports', 'exports', 'calls', 'extends', 'implements', 'instantiates'] as const;
 
 export type EdgeKind = (typeof EDGE_KINDS)[number];
 
