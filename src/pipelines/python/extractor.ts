@@ -29,11 +29,43 @@ export interface ExtractedImport {
 	range: ExtractedRange;
 }
 
+export type ExtractedRelationKind = 'calls' | 'extends';
+
+/**
+ * A call/base-class reference resolved by `server.py` via local scope (a
+ * name matching a function/class/method in the same file, including
+ * `self.method()`) or the file's import table (a name bound by `import`/
+ * `from ... import ...`, resolved to a module specifier normalize.ts can
+ * look up the same way it already resolves plain import edges). There is no
+ * type-checker fallback for anything else — the caller must not guess.
+ */
+export type ExtractedRelationTarget =
+	| { type: 'local'; name: string; range: ExtractedRange }
+	| { type: 'import'; name: string; moduleSpecifier: string; isRelative: boolean; relativeLevel: number };
+
+export interface ExtractedRelation {
+	kind: ExtractedRelationKind;
+	/** The enclosing function/method (for calls) or class (for extends) this relation originates from, in the same file being extracted. */
+	from: { name: string; range: ExtractedRange };
+	target: ExtractedRelationTarget;
+	metadata?: Record<string, unknown>;
+}
+
+/** A call/base-class reference `server.py` could not resolve via local scope or the import table, and therefore dropped instead of guessing. Kept as a trace for diagnosing extraction gaps; not turned into a graph edge. */
+export interface ExtractedUnresolvedReference {
+	kind: ExtractedRelationKind;
+	enclosingName: string;
+	name: string;
+	range: ExtractedRange;
+}
+
 export interface ExtractedFile {
 	filePath: string;
 	language: 'python';
 	symbols: ExtractedSymbol[];
 	imports: ExtractedImport[];
+	relations: ExtractedRelation[];
+	unresolved: ExtractedUnresolvedReference[];
 }
 
 export interface ExtractionError {

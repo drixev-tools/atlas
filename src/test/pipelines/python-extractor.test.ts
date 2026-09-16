@@ -129,6 +129,25 @@ suite('Python pipeline: extractor', () => {
 		assert.strictEqual(byModule('parent')?.relativeLevel, 2);
 	});
 
+	test('records an unresolved call instead of guessing its target', async () => {
+		const filePath = writeTempFile(
+			tmpDir,
+			'unresolved.py',
+			['def run(thing):', '    thing.do_something()', '    unknown_name()'].join('\n')
+		);
+
+		const { files } = await extractFiles(server, [filePath]);
+		const [file] = files;
+
+		assert.strictEqual(file.relations.filter((r) => r.kind === 'calls').length, 0);
+		assert.strictEqual(file.unresolved.length, 2);
+		assert.ok(file.unresolved.every((u) => u.kind === 'calls' && u.enclosingName === 'run'));
+		assert.deepStrictEqual(
+			file.unresolved.map((u) => u.name).sort(),
+			['thing.do_something', 'unknown_name']
+		);
+	});
+
 	test('reports syntax errors instead of failing the whole batch', async () => {
 		const goodFile = writeTempFile(tmpDir, 'good.py', 'def ok():\n    pass\n');
 		const badFile = writeTempFile(tmpDir, 'bad.py', 'def broken(:\n    pass\n');

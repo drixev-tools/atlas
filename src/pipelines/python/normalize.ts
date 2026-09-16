@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { CodeGraph, GraphEdge, GraphNode, NodeKind, createEmptyGraph } from '../model';
-import { ExtractedFile, ExtractedImport, ExtractedSymbol } from './extractor';
+import { ExtractedFile, ExtractedRange, ExtractedRelationTarget, ExtractedSymbol } from './extractor';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -8,6 +8,10 @@ function fileNodeId(filePath: string): string {
 
 function externalNodeId(name: string): string {
 	return `external:${name}`;
+}
+
+function symbolNodeId(fileId: string, range: Pick<ExtractedRange, 'startLine' | 'startColumn'>, name: string): string {
+	return `symbol:${fileId}:${range.startLine}:${range.startColumn}:${name}`;
 }
 
 function symbolKindToNodeKind(kind: ExtractedSymbol['kind']): NodeKind {
@@ -37,19 +41,31 @@ function resolveAbsoluteModule(moduleSpecifier: string, rootDir: string, knownFi
 	return findKnownFile(candidateFilePaths(path.join(rootDir, relativePath)), knownFileIds);
 }
 
+interface ModuleRef {
+	moduleSpecifier: string;
+	isRelative: boolean;
+	relativeLevel: number;
+}
+
 /** Resolves `from . import x` / `from .sub import y` / `from ..pkg import z` relative to the importing file's package. */
-function resolveRelativeModule(imp: ExtractedImport, containingFilePath: string, knownFileIds: Set<string>): string | undefined {
+function resolveRelativeModule(ref: ModuleRef, containingFilePath: string, knownFileIds: Set<string>): string | undefined {
 	let packageDir = path.dirname(containingFilePath);
-	for (let i = 1; i < imp.relativeLevel; i++) {
+	for (let i = 1; i < ref.relativeLevel; i++) {
 		packageDir = path.dirname(packageDir);
 	}
 
-	if (!imp.moduleSpecifier) {
+	if (!ref.moduleSpecifier) {
 		return findKnownFile([path.join(packageDir, '__init__.py')], knownFileIds);
 	}
 
-	const relativePath = imp.moduleSpecifier.split('.').join(path.sep);
+	const relativePath = ref.moduleSpecifier.split('.').join(path.sep);
 	return findKnownFile(candidateFilePaths(path.join(packageDir, relativePath)), knownFileIds);
+}
+
+function resolveModuleFileId(ref: ModuleRef, containingFilePath: string, rootDir: string, knownFileIds: Set<string>): string | undefined {
+	return ref.isRelative
+		? resolveRelativeModule(ref, containingFilePath, knownFileIds)
+		: resolveAbsoluteModule(ref.moduleSpecifier, rootDir, knownFileIds);
 }
 
 interface ModuleResolution {
@@ -59,22 +75,48 @@ interface ModuleResolution {
 	externalName?: string;
 }
 
-function resolveModule(
-	imp: ExtractedImport,
-	containingFilePath: string,
-	rootDir: string,
-	knownFileIds: Set<string>
-): ModuleResolution {
-	const nodeId = imp.isRelative
-		? resolveRelativeModule(imp, containingFilePath, knownFileIds)
-		: resolveAbsoluteModule(imp.moduleSpecifier, rootDir, knownFileIds);
-
+function resolveModule(ref: ModuleRef, containingFilePath: string, rootDir: string, knownFileIds: Set<string>): ModuleResolution {
+	const nodeId = resolveModuleFileId(ref, containingFilePath, rootDir, knownFileIds);
 	if (nodeId) {
 		return { nodeId };
 	}
 
-	const externalName = imp.isRelative ? `${'.'.repeat(imp.relativeLevel)}${imp.moduleSpecifier}` : imp.moduleSpecifier;
+	const externalName = ref.isRelative ? `${'.'.repeat(ref.relativeLevel)}${ref.moduleSpecifier}` : ref.moduleSpecifier;
 	return { externalName };
+}
+
+/**
+ * Resolves a `calls`/`extends` relation target to the graph node id it
+ * corresponds to. A `local` target already carries the exact range of the
+ * matching symbol in the same file (server.py found it via `ast`, not a type
+ * checker), so it only needs to be checked against that file's own extracted
+ * symbols. An `import` target only names a module specifier and a top-level
+ * name; it can only be resolved when the target file was itself extracted in
+ * this batch, since that is the only place its top-level symbol ids are
+ * known without re-parsing it. Anything else (a target file outside the
+ * batch, or a name not found among its top-level symbols) is left
+ * unresolved rather than guessed at.
+ */
+function resolveRelationTarget(
+	target: ExtractedRelationTarget,
+	fileId: string,
+	filePath: string,
+	rootDir: string,
+	batchFileIds: ReadonlySet<string>,
+	knownFileIds: Set<string>,
+	knownSymbolIds: ReadonlySet<string>,
+	topLevelSymbolIdsByFileId: ReadonlyMap<string, Map<string, string>>
+): string | undefined {
+	if (target.type === 'local') {
+		const candidateId = symbolNodeId(fileId, target.range, target.name);
+		return knownSymbolIds.has(candidateId) ? candidateId : undefined;
+	}
+
+	const targetFileId = resolveModuleFileId(target, filePath, rootDir, knownFileIds);
+	if (!targetFileId || !batchFileIds.has(targetFileId)) {
+		return undefined;
+	}
+	return topLevelSymbolIdsByFileId.get(targetFileId)?.get(target.name);
 }
 
 export interface NormalizeToGraphOptions {
@@ -93,7 +135,8 @@ export interface NormalizeToGraphOptions {
  * pipeline-agnostic graph model, resolving absolute and relative imports to
  * sibling file nodes when they point at a file within `rootDir`, and
  * collapsing everything else — stdlib, third-party packages, unresolvable
- * specifiers — into shared external-module nodes. Mirrors
+ * specifiers — into shared external-module nodes. Also turns each file's
+ * already-resolved `calls`/`extends` relations into edges. Mirrors
  * `pipelines/ts/normalize.ts` so both pipelines produce the same shape.
  */
 export function normalizeToGraph(
@@ -125,6 +168,10 @@ export function normalizeToGraph(
 		return id;
 	};
 
+	const batchFileIds = new Set(files.map((f) => fileNodeId(f.filePath)));
+	const knownSymbolIds = new Set<string>();
+	const topLevelSymbolIdsByFileId = new Map<string, Map<string, string>>();
+
 	for (const file of files) {
 		const fileId = fileNodeId(file.filePath);
 		addNode({
@@ -138,7 +185,8 @@ export function normalizeToGraph(
 		const symbolIdByName = new Map<string, string>();
 
 		for (const symbol of file.symbols) {
-			const symbolId = `symbol:${fileId}:${symbol.range.startLine}:${symbol.range.startColumn}:${symbol.name}`;
+			const symbolId = symbolNodeId(fileId, symbol.range, symbol.name);
+			knownSymbolIds.add(symbolId);
 			if (!symbol.parentName) {
 				symbolIdByName.set(symbol.name, symbolId);
 			}
@@ -172,6 +220,12 @@ export function normalizeToGraph(
 			}
 		}
 
+		topLevelSymbolIdsByFileId.set(fileId, symbolIdByName);
+	}
+
+	for (const file of files) {
+		const fileId = fileNodeId(file.filePath);
+
 		for (const imp of file.imports) {
 			const resolution = resolveModule(imp, file.filePath, rootDir, knownFileIds);
 			const targetId = resolution.nodeId ?? ensureExternalNode(resolution.externalName!);
@@ -187,6 +241,33 @@ export function normalizeToGraph(
 					isRelative: imp.isRelative,
 					relativeLevel: imp.relativeLevel
 				}
+			});
+		}
+
+		for (const relation of file.relations) {
+			const fromId = symbolNodeId(fileId, relation.from.range, relation.from.name);
+			const targetId = resolveRelationTarget(
+				relation.target,
+				fileId,
+				file.filePath,
+				rootDir,
+				batchFileIds,
+				knownFileIds,
+				knownSymbolIds,
+				topLevelSymbolIdsByFileId
+			);
+			if (!targetId || fromId === targetId) {
+				continue;
+			}
+
+			const order = relation.metadata?.order;
+			const idSuffix = typeof order === 'number' ? `:${order}` : '';
+			addEdge({
+				id: `${relation.kind}:${fromId}:${targetId}${idSuffix}`,
+				kind: relation.kind,
+				source: fromId,
+				target: targetId,
+				metadata: relation.metadata
 			});
 		}
 	}
