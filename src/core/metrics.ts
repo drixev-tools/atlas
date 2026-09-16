@@ -13,6 +13,7 @@ export type UsageMetricEvent =
 	| 'analyzeWorkspace'
 	| 'openArchitecture'
 	| 'calculateImpact'
+	| 'showSequenceDiagram'
 	| 'designProject'
 	| 'incrementalUpdate';
 

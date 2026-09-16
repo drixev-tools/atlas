@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import {
 	AnthropicClaudeDesignClient,
 	AnthropicClaudeImpactClient,
+	AnthropicClaudeSequenceDiagramClient,
 	AuthenticationError,
 	resolveClaudeSettings,
 	SecretStorageApiKeyStore,
@@ -10,13 +11,16 @@ import {
 } from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
-import { ProjectGraphStore } from './core/store';
+import { ProjectGraphStore, StoredNode } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
 	buildEmptyImpactViewState,
+	buildErrorSequenceDiagramViewState,
 	buildFallbackExplanation,
 	buildImpactViewState,
+	buildNoApiKeySequenceDiagramViewState,
+	buildSequenceDiagramViewState,
 	CalculateImpactResult,
 	CALCULATE_IMPACT_COMMAND,
 	calculateImpact,
@@ -27,14 +31,19 @@ import {
 	FOCUS_SETTINGS_VIEW_COMMAND,
 	GraphPanel,
 	ImpactPanel,
+	loadSequenceContext,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
 	registerSettingsView,
 	registerSidebar,
-	toImpactSummaryInput
+	SequenceDiagramPanel,
+	SHOW_SEQUENCE_DIAGRAM_COMMAND,
+	SidebarTreeNode,
+	toImpactSummaryInput,
+	toSequenceDiagramContextInput
 } from './ui';
 
-export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND };
+export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND };
 
 /**
  * Reused across "Calculate Impact" invocations so its short git-status cache
@@ -57,6 +66,9 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(ANALYZE_WORKSPACE_COMMAND, () => runAnalyzeWorkspaceCommand(context)),
 		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context)),
 		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context)),
+		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, (element: SidebarTreeNode | undefined) =>
+			runShowSequenceDiagramCommand(context, element)
+		),
 		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => runDesignProjectCommand(context))
 	);
 
@@ -220,6 +232,67 @@ async function presentImpactResult(context: vscode.ExtensionContext, result: Cal
 	}
 
 	ImpactPanel.createOrShow(buildImpactViewState(impactResult, explanation, aiGenerated));
+}
+
+/**
+ * "Show Sequence Diagram" — the sidebar tree's per-node context menu action
+ * (function/file nodes only, see package.json's `view/item/context`
+ * contribution). Builds the node's call context from the Project Graph
+ * (../ui/sequenceDiagram's `loadSequenceContext`) and asks Claude to sketch a
+ * sequence diagram from it, presented in the persistent
+ * ../ui/sequenceDiagramView. There is no non-AI fallback — the diagram IS the
+ * AI-generated artifact — so a missing/rejected API key instead shows a
+ * message directing the user to the AI Settings sidebar view, mirroring how
+ * `runDesignProjectCommand` handles the same case.
+ */
+async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, element: SidebarTreeNode | undefined): Promise<void> {
+	if (!element || element.kind !== 'node' || (element.node.kind !== 'function' && element.node.kind !== 'file')) {
+		return;
+	}
+	const node: StoredNode = element.node;
+
+	recordUsage(context, 'showSequenceDiagram');
+
+	const sequenceContext = await loadSequenceContext(resolveGraphDbPath(context), node.id);
+	if (!sequenceContext) {
+		void vscode.window.showErrorMessage(`Project Graph: "${node.name}" is no longer in the Project Graph.`);
+		return;
+	}
+
+	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
+	const settings = await resolveClaudeSettings(claudeSettings);
+	if (!settings) {
+		SequenceDiagramPanel.createOrShow(buildNoApiKeySequenceDiagramViewState(sequenceContext));
+		return;
+	}
+
+	await vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			title: `Project Graph: Generating sequence diagram for "${node.name}"`,
+			cancellable: false
+		},
+		async () => {
+			try {
+				const diagram = await new AnthropicClaudeSequenceDiagramClient(settings.apiKey, settings.model).generateSequenceDiagram(
+					toSequenceDiagramContextInput(sequenceContext)
+				);
+				SequenceDiagramPanel.createOrShow(buildSequenceDiagramViewState(sequenceContext, diagram));
+			} catch (error) {
+				if (error instanceof AuthenticationError) {
+					await claudeSettings.clearApiKey();
+					SequenceDiagramPanel.createOrShow(buildNoApiKeySequenceDiagramViewState(sequenceContext));
+					return;
+				}
+				SequenceDiagramPanel.createOrShow(
+					buildErrorSequenceDiagramViewState(
+						sequenceContext,
+						`Claude did not return a sequence diagram — ${error instanceof Error ? error.message : String(error)}`
+					)
+				);
+			}
+		}
+	);
 }
 
 const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';

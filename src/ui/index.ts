@@ -7,6 +7,8 @@ export * from './graphLayout';
 export * from './analyzeWorkspace';
 export * from './impact';
 export * from './impactView';
+export * from './sequenceDiagram';
+export * from './sequenceDiagramView';
 export * from './designProject';
 export * from './sidebarData';
 export * from './sidebarView';

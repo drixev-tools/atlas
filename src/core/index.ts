@@ -5,6 +5,7 @@ export * from './populate';
 export * from './incremental';
 export * from './watcher';
 export * from './impact';
+export * from './sequenceContext';
 export * from './testLinks';
 export * from './gitExtensionApi';
 export * from './gitStatus';
