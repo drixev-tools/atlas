@@ -2,11 +2,17 @@
 // analysis (../core/impact), the test<->code relation (../core/testLinks),
 // and the vscode.git-backed changed-file list (../core/gitStatus) together
 // into the result the "Project Graph: Calculate Impact" command presents.
+// `buildFallbackExplanation` is the non-AI summary used when no Anthropic
+// API key is configured; `toImpactSummaryInput` maps into what
+// `../design/impactClient`'s Claude client explains. The persistent view
+// itself lives in ./impactView, kept separate like ./graphPanel is from
+// ./graphFilter/./graphFocus.
 import * as path from 'path';
 import { getStructuralConsumersForFile, getStructuralDependenciesForFile } from '../core/impact';
 import { GitStatusProvider, GitStatusSource } from '../core/gitStatus';
 import { findRelatedTestFiles } from '../core/testLinks';
 import { ProjectGraphStore } from '../core/store';
+import { ImpactSummaryInput } from '../design/impactClient';
 
 export const CALCULATE_IMPACT_COMMAND = 'agentGraph.calculateImpact';
 
@@ -26,7 +32,7 @@ export interface CalculateImpactOptions {
 	dbPath?: string;
 	/** Active editor's file, used as the analysis target when there are no uncommitted git changes (or vscode.git is unavailable). */
 	activeFilePath?: string;
-	/** Reused across calls so its short cache (Epic 8, task 2) actually saves a `git status` round trip; a call-scoped one is created otherwise. */
+	/** Reused across calls so its short cache actually saves a `git status` round trip; a call-scoped one is created otherwise. */
 	gitStatus?: GitStatusSource;
 	/** Reports each stage of the calculation, e.g. for a `vscode.window.withProgress` notification. */
 	onProgress?: (message: string) => void;
@@ -54,12 +60,11 @@ const EMPTY_TAIL: Pick<CalculateImpactResult, 'targets' | 'impacts' | 'impactedF
 
 /**
  * Computes what a set of changed files would structurally impact: their
- * transitive consumers (Epic 8, task 1) and the tests related to either the
- * changed files or those consumers (task 4, built on task 2's test<->code
- * relation). The target set defaults to the workspace's uncommitted git
- * changes (task 3) that are also present in the Project Graph; when there
- * are none, it falls back to `activeFilePath` so the command stays useful on
- * a clean working tree.
+ * transitive consumers and the tests related to either the changed files or
+ * those consumers. The target set defaults to the workspace's uncommitted
+ * git changes that are also present in the Project Graph; when there are
+ * none, it falls back to `activeFilePath` so the command stays useful on a
+ * clean working tree.
  *
  * Kept free of any `vscode` dependency, like `analyzeWorkspace.ts`, so it can
  * be exercised directly in tests; the command registered in `extension.ts` is
@@ -138,5 +143,88 @@ function buildFileImpact(store: ProjectGraphStore, filePath: string): FileImpact
 		dependencies: toFilePaths(getStructuralDependenciesForFile(store, filePath)),
 		consumers: toFilePaths(getStructuralConsumersForFile(store, filePath)),
 		relatedTests: findRelatedTestFiles(store, filePath)
+	};
+}
+
+/**
+ * Maps a `CalculateImpactResult` with a real target set (`source` "git" or
+ * "activeFile") into what `ClaudeImpactClient.explainImpact`
+ * (../design/impactClient) needs. Never called with `source: 'none'` — there
+ * is nothing to explain then, which `../ui/impactView`'s caller checks for
+ * before reaching Claude at all.
+ */
+export function toImpactSummaryInput(result: CalculateImpactResult & { source: 'git' | 'activeFile' }): ImpactSummaryInput {
+	return {
+		source: result.source,
+		targets: result.impacts.map((impact) => ({
+			filePath: impact.filePath,
+			dependencies: impact.dependencies,
+			consumers: impact.consumers,
+			relatedTests: impact.relatedTests
+		})),
+		impactedFiles: result.impactedFiles,
+		relatedTests: result.relatedTests
+	};
+}
+
+/**
+ * The fallback explanation the persistent view (../ui/impactView) shows when
+ * no Anthropic API key is configured (../design/settings), so the command
+ * stays useful without one.
+ */
+export function buildFallbackExplanation(result: CalculateImpactResult & { source: 'git' | 'activeFile' }): string {
+	const sourceLabel = result.source === 'git' ? 'uncommitted changes' : 'the active file';
+	const lines = [
+		`Impact of ${sourceLabel} (${result.targets.length} file(s)): ${result.impactedFiles.length} file(s) affected, ${result.relatedTests.length} related test(s).`
+	];
+
+	if (result.impactedFiles.length > 0) {
+		lines.push('', 'Impacted files:', ...result.impactedFiles.map((filePath) => `- ${filePath}`));
+	}
+	if (result.relatedTests.length > 0) {
+		lines.push('', 'Related tests:', ...result.relatedTests.map((filePath) => `- ${filePath}`));
+	}
+	return lines.join('\n');
+}
+
+export interface ImpactViewState {
+	source: ImpactSource;
+	targets: string[];
+	impactedFiles: string[];
+	relatedTests: string[];
+	/** Claude's explanation, or `buildFallbackExplanation`'s output when `aiGenerated` is false. */
+	explanation: string;
+	aiGenerated: boolean;
+}
+
+export function buildImpactViewState(
+	result: CalculateImpactResult & { source: 'git' | 'activeFile' },
+	explanation: string,
+	aiGenerated: boolean
+): ImpactViewState {
+	return {
+		source: result.source,
+		targets: result.targets,
+		impactedFiles: result.impactedFiles,
+		relatedTests: result.relatedTests,
+		explanation,
+		aiGenerated
+	};
+}
+
+/**
+ * State shown when there's nothing to calculate impact for (no uncommitted
+ * git changes and no active file known to the Project Graph). Kept as a
+ * persistent view state, like every other outcome, rather than a one-off
+ * notification, so re-running the command always lands in the same place.
+ */
+export function buildEmptyImpactViewState(): ImpactViewState {
+	return {
+		source: 'none',
+		targets: [],
+		impactedFiles: [],
+		relatedTests: [],
+		explanation: 'No uncommitted git changes and no active file in the Project Graph — nothing to calculate impact for.',
+		aiGenerated: false
 	};
 }

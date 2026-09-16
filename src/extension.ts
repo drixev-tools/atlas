@@ -1,12 +1,22 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { AnthropicClaudeDesignClient, AuthenticationError, resolveClaudeSettings, SecretStorageApiKeyStore, VsCodeClaudeSettingsStore } from './design';
+import {
+	AnthropicClaudeDesignClient,
+	AnthropicClaudeImpactClient,
+	AuthenticationError,
+	resolveClaudeSettings,
+	SecretStorageApiKeyStore,
+	VsCodeClaudeSettingsStore
+} from './design';
 import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
 import { ProjectGraphStore } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
+	buildEmptyImpactViewState,
+	buildFallbackExplanation,
+	buildImpactViewState,
 	CalculateImpactResult,
 	CALCULATE_IMPACT_COMMAND,
 	calculateImpact,
@@ -16,10 +26,12 @@ import {
 	DESIGN_PROJECT_COMMAND,
 	FOCUS_SETTINGS_VIEW_COMMAND,
 	GraphPanel,
+	ImpactPanel,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
 	registerSettingsView,
-	registerSidebar
+	registerSidebar,
+	toImpactSummaryInput
 } from './ui';
 
 export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, OPEN_ARCHITECTURE_COMMAND };
@@ -32,8 +44,8 @@ export { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COM
 let gitStatusProvider: GitStatusProvider | undefined;
 
 /**
- * Sidebar Panel's Tree View provider (Fase 1.1, Epic A), refreshed after any
- * command that changes the Project Graph (Analyze Workspace, Design Project)
+ * Sidebar Panel's Tree View provider, refreshed after any command that
+ * changes the Project Graph (Analyze Workspace, Design Project)
  * so the tree doesn't go stale. `undefined` until `activate()` registers it.
  */
 let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
@@ -105,9 +117,8 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 
 /**
  * "Project Graph: Open Architecture" — opens the React Flow graph panel
- * (`../ui/graphPanel`), rebuilt in Fase 1.2, Epic F after the Cytoscape.js
- * viewer it replaces (Epic 6) was retired in Epic D. Reveals and refreshes
- * the existing panel if one is already open, otherwise creates it; either
+ * (`../ui/graphPanel`). Reveals and refreshes the existing panel if one is
+ * already open, otherwise creates it; either
  * way it (re)focuses on the active editor's file and that file's direct
  * relations, per `GraphPanel`'s own `graph:update` handling.
  */
@@ -123,7 +134,8 @@ async function openArchitecture(context: vscode.ExtensionContext): Promise<void>
  * workspace's uncommitted git changes (or, on a clean working tree, of the
  * active editor's file): their transitive consumers plus the tests related to
  * either. See `calculateImpact` for the underlying, `vscode`-free
- * orchestration this wraps.
+ * orchestration this wraps; `presentImpactResult` turns that into the
+ * persistent Impact view (../ui/impactView).
  */
 async function runCalculateImpactCommand(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'calculateImpact');
@@ -149,7 +161,7 @@ async function runCalculateImpactCommand(context: vscode.ExtensionContext): Prom
 					gitStatus: (gitStatusProvider ??= new GitStatusProvider()),
 					onProgress: (message) => progress.report({ message })
 				});
-				await presentImpactResult(result);
+				await presentImpactResult(context, result);
 			} catch (error) {
 				void vscode.window.showErrorMessage(
 					`Project Graph: impact calculation failed — ${error instanceof Error ? error.message : String(error)}`
@@ -159,42 +171,55 @@ async function runCalculateImpactCommand(context: vscode.ExtensionContext): Prom
 	);
 }
 
-async function presentImpactResult(result: CalculateImpactResult): Promise<void> {
+/**
+ * Opens/refreshes the persistent Impact view — including, since there's
+ * nothing structural to show, the empty-target case (`buildEmptyImpactViewState`)
+ * rather than a one-off notification, so re-running the command always lands
+ * in the same place. For a real target set, generates the explanation via
+ * Claude when an Anthropic API key is configured (../design/settings) and
+ * falls back to `buildFallbackExplanation`'s non-AI summary otherwise —
+ * including when Claude itself fails, e.g. a stored key Anthropic now rejects
+ * (`AuthenticationError`, cleared here like `runDesignProjectCommand` does),
+ * so the view is never left without an explanation. A non-auth failure (e.g.
+ * network/rate-limit) also surfaces a warning toast, since the fallback
+ * summary alone wouldn't otherwise tell the user AI generation was attempted
+ * and failed.
+ */
+async function presentImpactResult(context: vscode.ExtensionContext, result: CalculateImpactResult): Promise<void> {
 	if (result.source === 'none') {
-		void vscode.window.showInformationMessage(
-			'Project Graph: no uncommitted git changes and no active file in the Project Graph — nothing to calculate impact for.'
-		);
+		ImpactPanel.createOrShow(buildEmptyImpactViewState());
 		return;
 	}
+	const impactResult = result as CalculateImpactResult & { source: 'git' | 'activeFile' };
 
-	const sourceLabel = result.source === 'git' ? 'uncommitted changes' : 'the active file';
-	void vscode.window.showInformationMessage(
-		`Project Graph: impact of ${sourceLabel} (${result.targets.length} file(s)) — ${result.impactedFiles.length} file(s) affected, ${result.relatedTests.length} related test(s).`
-	);
+	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
+	const settings = await resolveClaudeSettings(claudeSettings);
 
-	if (result.impactedFiles.length === 0 && result.relatedTests.length === 0) {
-		return;
+	let explanation: string;
+	let aiGenerated = false;
+	if (settings) {
+		try {
+			explanation = await new AnthropicClaudeImpactClient(settings.apiKey, settings.model).explainImpact(
+				toImpactSummaryInput(impactResult)
+			);
+			aiGenerated = true;
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				await claudeSettings.clearApiKey();
+			} else {
+				void vscode.window.showWarningMessage(
+					`Project Graph: Claude explanation failed, showing a non-AI summary instead — ${
+						error instanceof Error ? error.message : String(error)
+					}`
+				);
+			}
+			explanation = buildFallbackExplanation(impactResult);
+		}
+	} else {
+		explanation = buildFallbackExplanation(impactResult);
 	}
 
-	const items: Array<vscode.QuickPickItem & { filePath: string }> = [
-		...result.targets.map((filePath) => impactQuickPickItem(filePath, '$(edit)', 'changed')),
-		...result.impactedFiles.map((filePath) => impactQuickPickItem(filePath, '$(arrow-right)', 'impacted')),
-		...result.relatedTests.map((filePath) => impactQuickPickItem(filePath, '$(beaker)', 'related test'))
-	];
-
-	const picked = await vscode.window.showQuickPick(items, {
-		title: 'Project Graph: Impact',
-		placeHolder: 'Select a file to open'
-	});
-	if (picked) {
-		await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(picked.filePath));
-	}
-}
-
-function impactQuickPickItem(filePath: string, icon: string, description: string): vscode.QuickPickItem & { filePath: string } {
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	const label = folder ? path.relative(folder.uri.fsPath, filePath) : filePath;
-	return { label: `${icon} ${label}`, description, filePath };
+	ImpactPanel.createOrShow(buildImpactViewState(impactResult, explanation, aiGenerated));
 }
 
 const OPEN_ARCHITECTURE_ACTION = 'Open Architecture';
@@ -205,7 +230,7 @@ const OPEN_AI_SETTINGS_ACTION = 'Open AI Settings';
  * "Project Graph: Design Project" — collects intent for a new project or
  * feature (structured fields plus free text, see `collectProjectIntent`),
  * resolves the Anthropic API key and Claude model from the shared
- * `ClaudeSettingsStore` (Fase 1.2, Epic G; ../design/settings), and asks
+ * `ClaudeSettingsStore` (../design/settings), and asks
  * Claude to turn that intent into a Proposed Graph. If no API key is
  * configured yet, this points the user at the AI Settings sidebar view
  * (../ui/settingsView) instead of prompting inline — that view is now the
@@ -300,8 +325,8 @@ function resolveGraphDbPath(context: vscode.ExtensionContext): string | undefine
 }
 
 /**
- * Bumps a local, offline usage counter (Epic 11) in `context.globalState` —
- * VS Code's own per-install `Memento` storage, never transmitted anywhere by
+ * Bumps a local, offline usage counter in `context.globalState` — VS Code's
+ * own per-install `Memento` storage, never transmitted anywhere by
  * this extension. Fire-and-forget: a command's usage count is never allowed
  * to hold up or fail the command itself.
  */
