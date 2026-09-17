@@ -1,6 +1,6 @@
 // The sequence diagram view's panel lifecycle and postMessage bridge
 // (contract in ./webview/sequenceDiagramProtocol) — mirrors
-// ./entryPointFlowPanel's singleton create-or-reveal shape, loading the same
+// ./activeFileFlowPanel's singleton create-or-reveal shape, loading the same
 // bundled React Flow script (./webview/main.tsx picks the root component via
 // `data-view`). Unlike that panel, this one owns no `ProjectGraphStore`: the
 // whole diagram is precomputed once per "Show Sequence Diagram" invocation

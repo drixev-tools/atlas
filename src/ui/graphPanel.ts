@@ -15,13 +15,13 @@ import { AnthropicClaudeLayerNamingClient, AuthenticationError, ClaudeSettingsSt
 import {
 	ArchitectureLayerGroup,
 	buildArchitectureFileLevelData,
+	buildArchitectureFlatFileData,
 	buildArchitectureLayerData,
 	applyLayerNamingResults,
 	resolveCachedLayerLabels,
 	toLayerNamingTargets
 } from './architectureLayers';
 import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
-import { resolveFileFlowEntryPointId } from './entryPointFlow';
 import { filterGraphForWorkflow } from './graphFilter';
 import { findInitialFocusNodeId } from './graphFocus';
 import { visibleGraph } from './graphExpansion';
@@ -54,7 +54,7 @@ export class GraphPanel implements vscode.Disposable {
 		private readonly extensionUri: vscode.Uri,
 		private store: ProjectGraphStore,
 		private readonly claudeSettings: ClaudeSettingsStore | undefined,
-		private readonly openEntryPointFlow: ((nodeId: string) => void) | undefined
+		private readonly openActiveFileFlow: ((filePath: string) => void) | undefined
 	) {
 		this.panel.webview.html = this.renderHtml();
 		this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
@@ -72,8 +72,8 @@ export class GraphPanel implements vscode.Disposable {
 	 * architecture view upgrade its folder-name group labels to
 	 * Claude-generated ones in the background; omit it (as the existing
 	 * `GraphPanel` tests do) to keep the view on folder names only.
-	 * `openEntryPointFlow`, when given, opens ./entryPointFlowPanel's separate
-	 * panel for a node id — how a file card's click (`architecture:openFileFlow`)
+	 * `openActiveFileFlow`, when given, opens ./activeFileFlowPanel's separate
+	 * panel for a file path — how a file card's click (`architecture:openFileFlow`)
 	 * is fulfilled, since that panel owns its own `ProjectGraphStore` and must
 	 * not share this one.
 	 */
@@ -81,7 +81,7 @@ export class GraphPanel implements vscode.Disposable {
 		extensionUri: vscode.Uri,
 		store: ProjectGraphStore,
 		claudeSettings?: ClaudeSettingsStore,
-		openEntryPointFlow?: (nodeId: string) => void
+		openActiveFileFlow?: (filePath: string) => void
 	): GraphPanel {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
@@ -97,7 +97,7 @@ export class GraphPanel implements vscode.Disposable {
 			localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist', 'ui', 'webview')]
 		});
 
-		GraphPanel.current = new GraphPanel(panel, extensionUri, store, claudeSettings, openEntryPointFlow);
+		GraphPanel.current = new GraphPanel(panel, extensionUri, store, claudeSettings, openActiveFileFlow);
 		return GraphPanel.current;
 	}
 
@@ -136,6 +136,8 @@ export class GraphPanel implements vscode.Disposable {
 			void this.postGraph();
 		} else if (message?.type === 'architecture:requestFiles') {
 			this.postFiles(message.groupId);
+		} else if (message?.type === 'architecture:requestFlatFiles') {
+			this.postFlatFiles();
 		} else if (message?.type === 'architecture:openFileFlow') {
 			this.handleOpenFileFlow(message.fileId);
 		} else if (message?.type === 'graph:exportRequest') {
@@ -197,6 +199,16 @@ export class GraphPanel implements vscode.Disposable {
 		void this.panel.webview.postMessage(message);
 	}
 
+	private postFlatFiles(): void {
+		const graph = this.store.getGraph();
+		const files = buildArchitectureFlatFileData(this.store, graph);
+		const message: HostToWebviewMessage = {
+			type: 'architecture:flatFiles',
+			payload: { model: files.model, entryPointFileIds: files.entryPointFileIds }
+		};
+		void this.panel.webview.postMessage(message);
+	}
+
 	/**
 	 * Names `staleGroups` via Claude (batched into one call) and, on success,
 	 * pushes a label patch to the already-open view — a no-op when there's
@@ -230,17 +242,17 @@ export class GraphPanel implements vscode.Disposable {
 		}
 	}
 
-	/** Resolves `fileId` to a node worth tracing (its own detected entry point, or its busiest function) and hands it to `openEntryPointFlow`; shows an info message instead when the file declares no functions/methods at all. */
+	/** Resolves `fileId` to its file path and hands it to `openActiveFileFlow`; shows an info message instead when the file isn't in the graph. */
 	private handleOpenFileFlow(fileId: string): void {
-		if (!this.openEntryPointFlow) {
+		if (!this.openActiveFileFlow) {
 			return;
 		}
-		const nodeId = resolveFileFlowEntryPointId(this.store, this.store.getGraph(), fileId);
-		if (!nodeId) {
-			void vscode.window.showInformationMessage('Project Graph: no functions found in this file to trace.');
+		const file = this.store.getNode(fileId);
+		if (!file?.filePath) {
+			void vscode.window.showInformationMessage('Project Graph: no file to trace.');
 			return;
 		}
-		this.openEntryPointFlow(nodeId);
+		this.openActiveFileFlow(file.filePath);
 	}
 
 	private postSelect(nodeId: string): void {
@@ -283,7 +295,7 @@ export class GraphPanel implements vscode.Disposable {
 		}
 	}
 
-	/** The Mermaid flowchart Markdown for whatever `view` the webview reports as currently showing — the layers level straight from `./architectureLayers`, with `expandedGroupIds`' own member files merged in as children the same way the webview does (`./webview/App.tsx`'s merge step), the symbol level rebuilt from the same `filterGraphForWorkflow`+`visibleGraph` pipeline `postGraph` uses. */
+	/** The Mermaid flowchart Markdown for whatever `view` the webview reports as currently showing — the layers level straight from `./architectureLayers`, with `expandedGroupIds`' own member files merged in as children the same way the webview does (`./webview/App.tsx`'s merge step), the files level from that same module's whole-project flat data, the symbol level rebuilt from the same `filterGraphForWorkflow`+`visibleGraph` pipeline `postGraph` uses. */
 	private buildExportMarkdown(view: GraphExportView): string | undefined {
 		const graph = this.store.getGraph();
 
@@ -303,6 +315,11 @@ export class GraphPanel implements vscode.Disposable {
 				};
 			}
 			return toMermaidMarkdown('Project Graph — Layered Architecture', diagramModelToMermaidFlowchart(model));
+		}
+
+		if (view.level === 'files') {
+			const files = buildArchitectureFlatFileData(this.store, graph);
+			return toMermaidMarkdown('Project Graph — Files', diagramModelToMermaidFlowchart(files.model));
 		}
 
 		if (!view.focusNodeId) {

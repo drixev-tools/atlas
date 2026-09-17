@@ -49,6 +49,48 @@ export function createProgramFromTsConfig(tsconfigPath: string): ts.Program {
 	});
 }
 
+/**
+ * Walks up from `startDir` to `rootDir` (inclusive) looking for the nearest
+ * `tsconfig.json`, the same lookup `tsc`/editors use for a given file.
+ * Bounded at `rootDir` so an unrelated `tsconfig.json` further up the real
+ * filesystem — outside the workspace actually being analyzed — is never
+ * picked up, the same "never guessed" rule this pipeline follows elsewhere.
+ */
+export function findNearestTsConfigDir(startDir: string, rootDir: string): string | undefined {
+	const boundary = path.resolve(rootDir);
+	let dir = path.resolve(startDir);
+	for (;;) {
+		if (ts.sys.fileExists(path.join(dir, 'tsconfig.json'))) {
+			return dir;
+		}
+		if (dir === boundary) {
+			return undefined;
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) {
+			return undefined;
+		}
+		dir = parent;
+	}
+}
+
+/**
+ * `tsconfigDir`'s `tsconfig.json`, parsed into compiler options merged over
+ * the pipeline's defaults — so a project's own `paths`/`baseUrl` (e.g. a
+ * `@/*` alias) apply during module resolution instead of every alias import
+ * being misclassified as an external module. Falls back to the defaults
+ * alone if the file is malformed, rather than failing the whole extraction.
+ */
+export function loadCompilerOptionsFromTsConfigDir(tsconfigDir: string): ts.CompilerOptions {
+	const tsconfigPath = path.join(tsconfigDir, 'tsconfig.json');
+	const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+	if (configFile.error) {
+		return DEFAULT_COMPILER_OPTIONS;
+	}
+	const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, tsconfigDir);
+	return { ...DEFAULT_COMPILER_OPTIONS, ...parsed.options };
+}
+
 export function getSourceFilesOf(program: ts.Program, fileNames: string[]): ts.SourceFile[] {
 	const wanted = new Set(fileNames.map((f) => ts.sys.resolvePath(f)));
 	return program

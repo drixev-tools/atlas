@@ -37,6 +37,39 @@ interface GroupChainLink {
 	label: string;
 }
 
+/**
+ * Folds a group that owns no files of its own and nests exactly one child
+ * group into that child — repeatedly, so a chain of several such pass-through
+ * folders (e.g. `backend/src/core`, if neither `backend` nor `src` ever holds
+ * a file directly) collapses to one node labelled with the full folder path
+ * instead of a tower of boxes that separate nothing. A group with its own
+ * files, or with more than one child, stays put: only a folder that is pure
+ * nesting is redundant.
+ */
+function collapseSingleChildGroups(groupById: Map<string, DiagramNode>, filePathsByNodeId: Map<string, string[]>): void {
+	let changed = true;
+	while (changed) {
+		changed = false;
+		const childCountByParentId = new Map<string, number>();
+		for (const group of groupById.values()) {
+			if (group.parentId) {
+				childCountByParentId.set(group.parentId, (childCountByParentId.get(group.parentId) ?? 0) + 1);
+			}
+		}
+
+		for (const group of groupById.values()) {
+			const parent = group.parentId ? groupById.get(group.parentId) : undefined;
+			if (!parent || filePathsByNodeId.has(parent.id) || childCountByParentId.get(parent.id) !== 1) {
+				continue;
+			}
+			groupById.set(group.id, { ...group, label: `${parent.label}/${group.label}`, parentId: parent.parentId });
+			groupById.delete(parent.id);
+			changed = true;
+			break;
+		}
+	}
+}
+
 /** The chain of nested group ids/labels `segments` (a file's folder path, already capped at `depth`) belongs to, root-most first. Always non-empty — a file with no folder never reaches this; see `aggregateDiagramModelByFolder`'s own root-level handling. */
 function groupChainForSegments(segments: readonly string[]): GroupChainLink[] {
 	const chain: GroupChainLink[] = [];
@@ -58,7 +91,10 @@ function groupChainForSegments(segments: readonly string[]): GroupChainLink[] {
  * separately as a group's `externalDependencies`, since an external
  * dependency is a metric here, not a graph edge. Only the leaf group at
  * `depth` gets an entry in `filePathsByNodeId`; an intermediate folder level
- * is nesting only, with no metrics of its own.
+ * is nesting only, with no metrics of its own — and if it nests nothing but
+ * that one leaf, `collapseSingleChildGroups` folds it away entirely rather
+ * than rendering a box that separates nothing (e.g. a monorepo's per-package
+ * `src` folder under `backend`/`frontend`).
  *
  * A file with no folder at all (living directly in `rootDir`) never gets a
  * synthetic wrapper group — it becomes its own top-level `file` `DiagramNode`
@@ -106,6 +142,8 @@ export function aggregateDiagramModelByFolder(graph: StoredGraph, options: Folde
 			filePathsByNodeId.set(leafGroupId, [node.filePath]);
 		}
 	}
+
+	collapseSingleChildGroups(groupById, filePathsByNodeId);
 
 	const fileIdByResolvedPath = new Map<string, string>();
 	for (const node of graph.nodes) {

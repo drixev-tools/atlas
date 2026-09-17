@@ -15,14 +15,20 @@
 // folder's children (`mergedArchitectureModel` below) rather than navigating
 // to a separate screen — collapsing it again just removes them. Clicking a
 // file card (root-level, or revealed by expanding its folder) asks the host
-// (`architecture:openFileFlow`) to open that file's call relationships in the
-// Entry Point Flow view instead (a separate panel, see ../entryPointFlow and
-// ../entryPointFlowPanel), since that already shows function relationships
+// (`architecture:openFileFlow`) to open that file's import flow in the Active
+// File Flow view instead (a separate panel, see ../activeFileFlow and
+// ../activeFileFlowPanel), since that already shows file-to-file relationships
 // better than a containment diagram would.
 //
 // The symbol level itself still exists (`graph:select`, driven by the
 // sidebar's "jump to symbol" — see ../sidebarView) — only the architecture
 // view's own file-card click no longer reaches it.
+//
+// "Files" is a peer top-level mode (toggled via the breadcrumb, not nested
+// under "Layers"): every file in the whole project as its own node, no
+// folder grouping and nothing hidden behind a click — the flat counterpart
+// to "Layers"'s folder-collapsed default, fetched once on first switch
+// (`architecture:requestFlatFiles`) since it's a whole-project computation.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type RefObject } from 'react';
 import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, type Edge, type NodeMouseHandler } from '@xyflow/react';
 import { DiagramModel } from '../../core/diagramModel';
@@ -31,11 +37,19 @@ import { countEdges, visibleGraph } from '../graphExpansion';
 import { hasHiddenStandaloneImports, visibleDiagramModel } from '../diagramFileExpansion';
 import { computeDiagramLayout } from '../diagramLayout';
 import { computeHierarchicalLayout } from '../graphLayout';
-import { ArchitectureFilesPayload, ArchitectureLayerLabel, ArchitectureLayerPayload, ExportFormat, GraphExportView, HostToWebviewMessage } from './protocol';
+import {
+	ArchitectureFilesPayload,
+	ArchitectureFlatFilesPayload,
+	ArchitectureLayerLabel,
+	ArchitectureLayerPayload,
+	ExportFormat,
+	GraphExportView,
+	HostToWebviewMessage
+} from './protocol';
 import { postToHost } from './vscodeApi';
 import { WorkflowNode, WorkflowFlowNode } from './WorkflowNode';
 import { DiagramCardData, DiagramCardFlowNode, DiagramCardNode, DiagramGroupData, DiagramGroupFlowNode, DiagramGroupNode } from './DiagramCardNode';
-import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS } from './visualSystem';
+import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
 import { ExportButton } from './ExportButton';
 import { captureViewExport } from './exportCapture';
 
@@ -47,13 +61,18 @@ const DIAGRAM_NODE_TYPES = { diagramCard: DiagramCardNode, diagramGroup: Diagram
 
 const EMPTY_GRAPH: StoredGraph = { nodes: [], edges: [] };
 const EMPTY_ARCHITECTURE: ArchitectureLayerPayload = { model: { nodes: [], edges: [] }, labelsByGroupId: {}, entryPointGroupIds: [] };
+const EMPTY_DIAGRAM_MODEL: DiagramModel = { nodes: [], edges: [] };
+const EMPTY_LABELS: Record<string, ArchitectureLayerLabel> = {};
+const EMPTY_ARCH_NODE_IDS: ReadonlySet<string> = new Set();
 
-type ViewMode = 'layers' | 'symbols';
+type ViewMode = 'layers' | 'files' | 'symbols';
 
 export function App(): ReactElement {
 	const [graph, setGraph] = useState<StoredGraph | undefined>(undefined);
 	const [architecture, setArchitecture] = useState<ArchitectureLayerPayload>(EMPTY_ARCHITECTURE);
 	const [filesByGroupId, setFilesByGroupId] = useState<Map<string, ArchitectureFilesPayload>>(new Map());
+	/** The whole-project "Files" mode's flat model, fetched once on first switch to that mode (`handleSelectFiles`) and reset to `undefined` on every fresh `graph:update`. */
+	const [flatFiles, setFlatFiles] = useState<ArchitectureFlatFilesPayload | undefined>(undefined);
 
 	const [viewMode, setViewMode] = useState<ViewMode>('layers');
 	const [selectedCardId, setSelectedCardId] = useState<string | undefined>(undefined);
@@ -97,12 +116,15 @@ export function App(): ReactElement {
 				setGraph(message.graph);
 				setArchitecture(message.architecture);
 				setFilesByGroupId(new Map());
+				setFlatFiles(undefined);
 				setViewMode('layers');
 				setSelectedCardId(undefined);
 				setExpandedArchNodeIds(new Set());
 				setFocusNodeId(message.focusNodeId);
 				setExpandedNodeIds(new Set());
 				setSelectedNodeId(undefined);
+			} else if (message.type === 'architecture:flatFiles') {
+				setFlatFiles(message.payload);
 			} else if (message.type === 'graph:select') {
 				setViewMode('symbols');
 				setSelectedCardId(undefined);
@@ -158,6 +180,8 @@ export function App(): ReactElement {
 		return ids;
 	}, [architecture, filesByGroupId, expandedArchNodeIds]);
 
+	const flatFileEntryPointIds = useMemo(() => new Set(flatFiles?.entryPointFileIds ?? []), [flatFiles]);
+
 	const toggleExpanded = useCallback((id: string) => {
 		setExpandedArchNodeIds((previous) => {
 			const next = new Set(previous);
@@ -199,6 +223,24 @@ export function App(): ReactElement {
 		[mergedArchitectureModel, expandedArchNodeIds, filesByGroupId, toggleExpanded]
 	);
 
+	const handleFlatFileNodeClick: NodeMouseHandler = useCallback((_event, node) => {
+		setSelectedCardId(node.id);
+		postToHost({ type: 'architecture:openFileFlow', fileId: node.id });
+	}, []);
+
+	const handleSelectLayers = useCallback(() => {
+		setViewMode('layers');
+		setSelectedCardId(undefined);
+	}, []);
+
+	const handleSelectFiles = useCallback(() => {
+		setViewMode('files');
+		setSelectedCardId(undefined);
+		if (!flatFiles) {
+			postToHost({ type: 'architecture:requestFlatFiles' });
+		}
+	}, [flatFiles]);
+
 	const handleSymbolNodeClick: NodeMouseHandler = useCallback((_event, node) => {
 		setSelectedNodeId(node.id);
 		setExpandedNodeIds((previous) => {
@@ -216,7 +258,9 @@ export function App(): ReactElement {
 		const view: GraphExportView =
 			viewMode === 'symbols'
 				? { level: 'symbols', focusNodeId: focusNodeId ?? '', expandedNodeIds: [...expandedNodeIds] }
-				: { level: 'layers', expandedGroupIds: [...expandedArchNodeIds].filter((id) => filesByGroupId.has(id)) };
+				: viewMode === 'files'
+				  ? { level: 'files' }
+				  : { level: 'layers', expandedGroupIds: [...expandedArchNodeIds].filter((id) => filesByGroupId.has(id)) };
 		postToHost({ type: 'graph:exportRequest', view });
 	}, [viewMode, focusNodeId, expandedNodeIds, expandedArchNodeIds, filesByGroupId]);
 
@@ -231,7 +275,31 @@ export function App(): ReactElement {
 				selectedNodeId={selectedNodeId}
 				onNodeClick={handleSymbolNodeClick}
 				onCloseDetail={() => setSelectedNodeId(undefined)}
-				breadcrumb={<Breadcrumb viewMode={viewMode} symbolLabel={graph?.nodes.find((n) => n.id === focusNodeId)?.name} onBackToLayers={() => setViewMode('layers')} />}
+				breadcrumb={
+					<Breadcrumb
+						viewMode={viewMode}
+						symbolLabel={graph?.nodes.find((n) => n.id === focusNodeId)?.name}
+						onSelectLayers={handleSelectLayers}
+						onSelectFiles={handleSelectFiles}
+					/>
+				}
+				exportToolbar={exportToolbar}
+				containerRef={diagramContainerRef}
+			/>
+		);
+	}
+
+	if (viewMode === 'files') {
+		return (
+			<DiagramLevelView
+				model={flatFiles?.model ?? EMPTY_DIAGRAM_MODEL}
+				entryPointIds={flatFileEntryPointIds}
+				labelsByGroupId={EMPTY_LABELS}
+				loadingMessage={!flatFiles ? 'Loading files…' : undefined}
+				selectedId={selectedCardId}
+				expandedNodeIds={EMPTY_ARCH_NODE_IDS}
+				onNodeClick={handleFlatFileNodeClick}
+				breadcrumb={<Breadcrumb viewMode={viewMode} onSelectLayers={handleSelectLayers} onSelectFiles={handleSelectFiles} />}
 				exportToolbar={exportToolbar}
 				containerRef={diagramContainerRef}
 			/>
@@ -247,7 +315,7 @@ export function App(): ReactElement {
 			selectedId={selectedCardId}
 			expandedNodeIds={expandedArchNodeIds}
 			onNodeClick={handleArchNodeClick}
-			breadcrumb={<Breadcrumb viewMode={viewMode} onBackToLayers={() => setViewMode('layers')} />}
+			breadcrumb={<Breadcrumb viewMode={viewMode} onSelectLayers={handleSelectLayers} onSelectFiles={handleSelectFiles} />}
 			exportToolbar={exportToolbar}
 			containerRef={diagramContainerRef}
 		/>
@@ -257,12 +325,14 @@ export function App(): ReactElement {
 interface BreadcrumbProps {
 	viewMode: ViewMode;
 	symbolLabel?: string;
-	onBackToLayers: () => void;
+	onSelectLayers: () => void;
+	onSelectFiles: () => void;
 }
 
-function Breadcrumb({ viewMode, symbolLabel, onBackToLayers }: BreadcrumbProps): ReactElement {
+function Breadcrumb({ viewMode, symbolLabel, onSelectLayers, onSelectFiles }: BreadcrumbProps): ReactElement {
 	const items: { key: string; label: string; current: boolean; onClick?: () => void }[] = [
-		{ key: 'layers', label: 'Layers', current: viewMode === 'layers', onClick: viewMode === 'layers' ? undefined : onBackToLayers }
+		{ key: 'layers', label: 'Layers', current: viewMode === 'layers', onClick: viewMode === 'layers' ? undefined : onSelectLayers },
+		{ key: 'files', label: 'Files', current: viewMode === 'files', onClick: viewMode === 'files' ? undefined : onSelectFiles }
 	];
 	if (viewMode === 'symbols' && symbolLabel) {
 		items.push({ key: 'symbols', label: symbolLabel, current: true });
@@ -308,13 +378,6 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 
 	const orderedNodes = useMemo(() => topologicallyOrderNodes(visibleModel), [visibleModel]);
 
-	const boxes = useMemo(
-		() => computeDiagramLayout(orderedNodes.map((node) => ({ id: node.id, parentId: node.parentId })), visibleModel.edges),
-		[orderedNodes, visibleModel]
-	);
-
-	const siblingIndexById = useMemo(() => computeSiblingIndex(orderedNodes), [orderedNodes]);
-
 	const hasChildrenById = useMemo(() => {
 		const result = new Set<string>();
 		for (const node of orderedNodes) {
@@ -324,6 +387,24 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 		}
 		return result;
 	}, [orderedNodes]);
+
+	const boxes = useMemo(
+		() =>
+			computeDiagramLayout(
+				orderedNodes.map((node) => {
+					const isGroupContainer = node.kind === 'group' && hasChildrenById.has(node.id);
+					if (isGroupContainer) {
+						return { id: node.id, parentId: node.parentId };
+					}
+					const hasPurpose = Boolean(labelsByGroupId[node.id]?.description);
+					return { id: node.id, parentId: node.parentId, height: estimateDiagramCardHeight(hasPurpose, node.metrics, false) };
+				}),
+				visibleModel.edges
+			),
+		[orderedNodes, visibleModel, hasChildrenById, labelsByGroupId]
+	);
+
+	const siblingIndexById = useMemo(() => computeSiblingIndex(orderedNodes), [orderedNodes]);
 
 	const visibleNodeIds = useMemo(() => new Set(orderedNodes.map((node) => node.id)), [orderedNodes]);
 
@@ -361,7 +442,8 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 					hasEntryPoint: entryPointIds.has(node.id),
 					isSelected: node.id === selectedId,
 					hasHiddenChildren,
-					isExpanded
+					isExpanded,
+					showFanMetrics: false
 				};
 				return { ...base, type: 'diagramCard', data };
 			}),
@@ -396,7 +478,15 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 			{!loadingMessage && flowNodes.length === 0 && <EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />}
 			{!loadingMessage && flowNodes.length > 0 && (
 				<div ref={containerRef} style={{ width: '100%', height: '100%' }}>
-					<ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={DIAGRAM_NODE_TYPES} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
+					<ReactFlow
+						nodes={flowNodes}
+						edges={flowEdges}
+						nodeTypes={DIAGRAM_NODE_TYPES}
+						onNodeClick={onNodeClick}
+						fitView
+						nodesConnectable={false}
+						proOptions={{ hideAttribution: true }}
+					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 						<Controls />
 					</ReactFlow>

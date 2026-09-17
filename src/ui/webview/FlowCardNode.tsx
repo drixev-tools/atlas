@@ -1,9 +1,10 @@
-// React Flow node renderer for the entry-point flow view (./EntryPointFlowApp):
-// a single step in the call chain, styled like ./DiagramCardNode's leaf card
-// (same ./visualSystem per-kind accent/icon) but left-right handled for a
-// flow rather than sized for metrics, plus this view's own affordances —
-// opening the node's file/line, and a collapse hint for a callee not yet
-// expanded into view.
+// React Flow node renderer for the active-file flow view (./ActiveFileFlowApp):
+// a single file in the flow, styled like ./DiagramCardNode's leaf card (same
+// ./visualSystem per-kind accent/icon) but left-right handled for a flow
+// rather than sized for metrics, plus this view's own affordances — opening
+// the file, a "Start" badge for a flow origin, and dimming for a file that's
+// merely notified (the active file's own imports) rather than part of the
+// highlighted chain leading to it.
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { NodeKind } from '../../pipelines/model';
@@ -19,10 +20,9 @@ export interface FlowCardData extends Record<string, unknown> {
 	kind: NodeKind;
 	label: string;
 	filePath?: string;
-	isEntryPoint: boolean;
-	isSelected: boolean;
-	hasCollapsedChildren: boolean;
-	isExpanded: boolean;
+	isRoot: boolean;
+	isActive: boolean;
+	isHighlighted: boolean;
 	onOpen: (nodeId: string) => void;
 }
 
@@ -31,16 +31,19 @@ export type FlowCardFlowNode = Node<FlowCardData, 'flowCard'>;
 export function FlowCardNode(props: NodeProps<FlowCardFlowNode>): ReactElement {
 	const { id, data } = props;
 	const visual = visualForKind(data.kind);
+	const classNames = ['ag-card', 'ag-flow-card', visual.accentClassName, data.isActive ? 'is-selected' : '', data.isHighlighted ? '' : 'is-dimmed']
+		.filter(Boolean)
+		.join(' ');
 
 	return (
-		<div className={`ag-card ag-flow-card ${visual.accentClassName} ${data.isSelected ? 'is-selected' : ''}`} title={data.filePath ?? data.label}>
+		<div className={classNames} title={data.filePath ?? data.label}>
 			<Handle type="target" position={Position.Left} />
 			<div className="ag-card-header">
 				<span className="ag-card-icon" aria-hidden="true">
 					{visual.icon}
 				</span>
 				<span className="ag-card-title">{data.label}</span>
-				{data.isEntryPoint && <span className="ag-card-entry-badge">Entry</span>}
+				{data.isRoot && <span className="ag-card-entry-badge">Start</span>}
 			</div>
 			{data.filePath && (
 				<button
@@ -54,11 +57,6 @@ export function FlowCardNode(props: NodeProps<FlowCardFlowNode>): ReactElement {
 				>
 					Open file &#8599;
 				</button>
-			)}
-			{data.hasCollapsedChildren && (
-				<div className="ag-flow-card-hint" aria-hidden="true">
-					{data.isExpanded ? '−' : '+'}
-				</div>
 			)}
 			<Handle type="source" position={Position.Right} />
 		</div>

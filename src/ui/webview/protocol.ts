@@ -27,11 +27,18 @@ export interface ArchitectureFilesPayload {
 	entryPointFileIds: string[];
 }
 
+/** The architecture view's whole-project "Files" mode (`../../architectureLayers`'s `buildArchitectureFlatFileData`): every file as its own node, no folder grouping, computed on demand the first time the user switches to that mode rather than upfront alongside `graph:update`. */
+export interface ArchitectureFlatFilesPayload {
+	model: DiagramModel;
+	entryPointFileIds: string[];
+}
+
 export type ExportFormat = 'svg' | 'png' | 'pdf';
 
 /** The webview's current level in the "Open Architecture" panel, sent along with `graph:exportRequest` so the host can build a Markdown export that matches whatever's actually on screen, without tracking that navigation state itself. */
 export type GraphExportView =
 	| { level: 'layers'; /** Ids of the folder groups currently expanded (their member files merged onto the canvas) — the host reproduces the same merge for the Markdown export. */ expandedGroupIds: string[] }
+	| { level: 'files' }
 	| { level: 'symbols'; focusNodeId: string; expandedNodeIds: string[] };
 
 export type HostToWebviewMessage =
@@ -57,6 +64,10 @@ export type HostToWebviewMessage =
 			payload: ArchitectureFilesPayload;
 	  }
 	| {
+			type: 'architecture:flatFiles';
+			payload: ArchitectureFlatFilesPayload;
+	  }
+	| {
 			/** Sent after the host's save dialog picked an `svg`/`png`/`pdf` destination for `graph:exportRequest` — the webview replies with `graph:exportCaptured`/`graph:exportCaptureFailed`. */
 			type: 'graph:exportCapture';
 			format: ExportFormat;
@@ -65,8 +76,9 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
 	| { type: 'graph:ready' }
 	| { type: 'architecture:requestFiles'; groupId: string }
+	| { /** The whole-project "Files" mode's flat model, fetched once the first time the user switches to it. */ type: 'architecture:requestFlatFiles' }
 	| {
-			/** A file card in the layers view was clicked (either a root-level file or one revealed by expanding its folder) — opens the Entry Point Flow view (a separate panel) for that file's call relationships instead of drilling into the old per-file symbol level. */
+			/** A file card in the layers or files view was clicked (a root-level file, one revealed by expanding its folder, or one from the flat files mode) — opens the Active File Flow view (a separate panel) for that file's import relationships instead of drilling into the old per-file symbol level. */
 			type: 'architecture:openFileFlow';
 			fileId: string;
 	  }

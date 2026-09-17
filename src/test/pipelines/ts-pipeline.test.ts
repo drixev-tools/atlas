@@ -86,6 +86,53 @@ suite('TS pipeline: end to end', () => {
 		);
 	});
 
+	test('resolves a tsconfig.json "paths" alias to the sibling file node instead of an external module', () => {
+		writeFile(tmpDir, 'tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
+		writeFile(tmpDir, 'src/schema.ts', 'export interface Schema { id: string; }\n');
+		writeFile(tmpDir, 'src/mailer.ts', "import { Schema } from '@/schema';\nexport function send(s: Schema): void {}\n");
+
+		const graph = runTsPipeline(tmpDir);
+
+		const mailerFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'mailer.ts');
+		const schemaFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'schema.ts');
+		assert.ok(mailerFile && schemaFile, 'expected file nodes for both mailer.ts and schema.ts');
+
+		const hasEdge = (predicate: (edge: GraphEdge) => boolean) => graph.edges.some(predicate);
+		assert.ok(
+			hasEdge((e) => e.kind === 'imports' && e.source === mailerFile!.id && e.target === schemaFile!.id),
+			'expected the "@/schema" alias import to resolve to schema.ts\'s file node'
+		);
+		assert.strictEqual(
+			graph.nodes.some((n) => n.kind === 'externalModule' && n.name === '@/schema'),
+			false,
+			'the alias must not be misclassified as an external module'
+		);
+	});
+
+	test('applies a nested package\'s own tsconfig.json paths independently of a sibling package\'s', () => {
+		writeFile(tmpDir, 'backend/tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
+		writeFile(tmpDir, 'backend/src/schema.ts', 'export interface Schema { id: string; }\n');
+		writeFile(tmpDir, 'backend/src/mailer.ts', "import { Schema } from '@/schema';\nexport function send(s: Schema): void {}\n");
+		writeFile(tmpDir, 'frontend/other.ts', "import '@/schema';\n");
+
+		const graph = runTsPipeline(tmpDir);
+
+		const mailerFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'mailer.ts');
+		const schemaFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'schema.ts');
+		const otherFile = graph.nodes.find((n) => n.kind === 'file' && n.name === 'other.ts');
+		assert.ok(mailerFile && schemaFile && otherFile);
+
+		const hasEdge = (predicate: (edge: GraphEdge) => boolean) => graph.edges.some(predicate);
+		assert.ok(
+			hasEdge((e) => e.kind === 'imports' && e.source === mailerFile!.id && e.target === schemaFile!.id),
+			"expected backend/mailer.ts's alias import to resolve using backend's own tsconfig.json"
+		);
+		assert.ok(
+			hasEdge((e) => e.kind === 'imports' && e.source === otherFile!.id && e.target.startsWith('external:')),
+			"expected frontend/other.ts's alias import to fall back to external, since it has no tsconfig.json of its own"
+		);
+	});
+
 	test('returns an empty graph when there are no TS/JS files', () => {
 		const graph = runTsPipeline(tmpDir);
 		assert.deepStrictEqual(graph, { nodes: [], edges: [] });

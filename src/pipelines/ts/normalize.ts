@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import { CodeGraph, GraphEdge, GraphNode, NodeKind, createEmptyGraph } from '../model';
 import { ExtractedDeclarationRef, ExtractedFile, ExtractedRange, ExtractedSymbol } from './extractor';
+import { findNearestTsConfigDir, loadCompilerOptionsFromTsConfigDir } from './program';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -97,13 +98,38 @@ function resolveDeclarationRefTarget(
 export function normalizeToGraph(
 	program: ts.Program,
 	files: ExtractedFile[],
+	rootDir: string,
 	options: NormalizeToGraphOptions = {}
 ): CodeGraph {
 	const graph = createEmptyGraph();
-	const compilerOptions = program.getCompilerOptions();
+	const defaultCompilerOptions = program.getCompilerOptions();
 	const batchFileIds = new Set(files.map((f) => fileNodeId(f.filePath)));
 	const knownFileIds = new Set([...batchFileIds, ...(options.knownFilePaths ?? []).map(fileNodeId)]);
 	const externalNodeIds = new Set<string>();
+
+	/**
+	 * Per-file compiler options, from that file's nearest `tsconfig.json`
+	 * (found within `rootDir`) rather than `program`'s own — a single
+	 * `ts.Program` here spans every file being extracted, but a monorepo can
+	 * have a different `tsconfig.json` (different `paths` aliases) per
+	 * package, so module resolution needs to use the config that actually
+	 * applies to the importing file, not one global config for everything.
+	 * Cached by config directory since many files typically share one.
+	 */
+	const compilerOptionsByConfigDir = new Map<string, ts.CompilerOptions>();
+	const compilerOptionsForFile = (filePath: string): ts.CompilerOptions => {
+		const configDir = findNearestTsConfigDir(path.dirname(filePath), rootDir);
+		if (!configDir) {
+			return defaultCompilerOptions;
+		}
+		const cached = compilerOptionsByConfigDir.get(configDir);
+		if (cached) {
+			return cached;
+		}
+		const loaded = loadCompilerOptionsFromTsConfigDir(configDir);
+		compilerOptionsByConfigDir.set(configDir, loaded);
+		return loaded;
+	};
 
 	const addNode = (node: GraphNode): void => {
 		graph.nodes.push(node);
@@ -175,9 +201,10 @@ export function normalizeToGraph(
 
 	for (const file of files) {
 		const fileId = fileNodeId(file.filePath);
+		const fileCompilerOptions = compilerOptionsForFile(file.filePath);
 
 		for (const imp of file.imports) {
-			const resolution = resolveModuleSpecifier(imp.moduleSpecifier, file.filePath, compilerOptions, knownFileIds);
+			const resolution = resolveModuleSpecifier(imp.moduleSpecifier, file.filePath, fileCompilerOptions, knownFileIds);
 			if (resolution.isExternal) {
 				ensureExternalNode(imp.moduleSpecifier);
 			}
@@ -214,7 +241,7 @@ export function normalizeToGraph(
 			if (!exp.fromModule) {
 				continue;
 			}
-			const resolution = resolveModuleSpecifier(exp.fromModule, file.filePath, compilerOptions, knownFileIds);
+			const resolution = resolveModuleSpecifier(exp.fromModule, file.filePath, fileCompilerOptions, knownFileIds);
 			if (resolution.isExternal) {
 				ensureExternalNode(exp.fromModule);
 			}

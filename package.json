@@ -39,8 +39,8 @@
         "title": "Show Sequence Diagram"
       },
       {
-        "command": "agentGraph.showEntryPointFlow",
-        "title": "Project Graph: Show Entry Point Flow"
+        "command": "agentGraph.showActiveFileFlow",
+        "title": "Project Graph: Show Active File Flow"
       },
       {
         "command": "agentGraph.showIdentifiedArchitecture",

@@ -198,8 +198,19 @@ function collectBodyRelations(
 		ts.forEachChild(node, visit);
 	};
 
-	ts.forEachChild(body, visit);
+	// `visit` itself (not just its children) must run against `body`: an arrow
+	// function's concise body (`() => doWork()`) *is* the call expression, with
+	// no enclosing statement for a plain forEachChild(body, ...) to recurse
+	// through.
+	visit(body);
 	return relations;
+}
+
+function functionValueOf(node: ts.Node | undefined): ts.ArrowFunction | ts.FunctionExpression | undefined {
+	if (node && (ts.isArrowFunction(node) || ts.isFunctionExpression(node))) {
+		return node;
+	}
+	return undefined;
 }
 
 function collectHeritageRelations(
@@ -244,13 +255,16 @@ function collectClassMembers(
 				relations.push(...collectBodyRelations(sourceFile, checker, member.body, { name: member.name.text, range }));
 			}
 		} else if (ts.isPropertyDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
-			members.push({
-				kind: 'property',
-				name: member.name.text,
-				exported: classExported,
-				range: toRange(sourceFile, member),
-				parentName: className
-			});
+			const range = toRange(sourceFile, member);
+			const functionValue = functionValueOf(member.initializer);
+			if (functionValue) {
+				members.push({ kind: 'method', name: member.name.text, exported: classExported, range, parentName: className });
+				if (functionValue.body) {
+					relations.push(...collectBodyRelations(sourceFile, checker, functionValue.body, { name: member.name.text, range }));
+				}
+				continue;
+			}
+			members.push({ kind: 'property', name: member.name.text, exported: classExported, range, parentName: className });
 		}
 	}
 
@@ -439,14 +453,21 @@ export function extractFile(program: ts.Program, sourceFile: ts.SourceFile): Ext
 		} else if (ts.isVariableStatement(statement)) {
 			const exportedByModifier = isExportedDeclaration(statement);
 			for (const declaration of statement.declarationList.declarations) {
-				if (ts.isIdentifier(declaration.name)) {
-					symbols.push({
-						kind: 'variable',
-						name: declaration.name.text,
-						exported: exportedNames.has(declaration.name.text) || exportedByModifier,
-						range: toRange(sourceFile, declaration)
-					});
+				if (!ts.isIdentifier(declaration.name)) {
+					continue;
 				}
+				const name = declaration.name.text;
+				const exported = exportedNames.has(name) || exportedByModifier;
+				const range = toRange(sourceFile, declaration);
+				const functionValue = functionValueOf(declaration.initializer);
+				if (functionValue) {
+					symbols.push({ kind: 'function', name, exported, range });
+					if (functionValue.body) {
+						relations.push(...collectBodyRelations(sourceFile, checker, functionValue.body, { name, range }));
+					}
+					continue;
+				}
+				symbols.push({ kind: 'variable', name, exported, range });
 			}
 		} else if (ts.isImportDeclaration(statement)) {
 			const imp = extractImportClause(sourceFile, checker, statement);

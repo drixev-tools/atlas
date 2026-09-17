@@ -18,6 +18,9 @@ import dagre from 'dagre';
 export interface DiagramLayoutNode {
 	id: string;
 	parentId?: string;
+	/** Per-node override for a leaf's card size, e.g. a card grown tall enough to fit its metric chips (../webview/visualSystem's `estimateDiagramCardHeight`). Falls back to `DiagramLayoutOptions.cardWidth`/`cardHeight` when omitted. Ignored for a node with children — its box is always sized to fit them. */
+	width?: number;
+	height?: number;
 }
 
 export interface DiagramLayoutEdge {
@@ -58,6 +61,7 @@ export function computeDiagramLayout(
 ): Map<string, DiagramNodeBox> {
 	const config = { ...DEFAULT_OPTIONS, ...options };
 	const knownIds = new Set(nodes.map((node) => node.id));
+	const nodesById = new Map(nodes.map((node) => [node.id, node]));
 
 	const parentById = new Map<string, string>();
 	const childrenByParent = new Map<string, string[]>();
@@ -97,7 +101,8 @@ export function computeDiagramLayout(
 	function layoutBox(nodeId: string): { width: number; height: number } {
 		const children = childrenByParent.get(nodeId) ?? [];
 		if (children.length === 0) {
-			const size = { width: config.cardWidth, height: config.cardHeight };
+			const override = nodesById.get(nodeId);
+			const size = { width: override?.width ?? config.cardWidth, height: override?.height ?? config.cardHeight };
 			sizeByNodeId.set(nodeId, size);
 			return size;
 		}

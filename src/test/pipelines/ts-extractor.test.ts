@@ -232,6 +232,65 @@ suite('TS pipeline: extractor', () => {
 		assert.strictEqual(calls.length, 0, 'expected the dynamically-dispatched call to be discarded, not guessed at');
 	});
 
+	test('extracts a top-level arrow function const as a function symbol, calls included', () => {
+		const filePath = writeTempFile(
+			tmpDir,
+			'arrow.ts',
+			['function helper(): void {}', 'export const main = () => {', '  helper();', '};'].join('\n')
+		);
+
+		const program = createProgramForFiles([filePath]);
+		const sourceFile = program.getSourceFile(filePath);
+		const extracted = extractFile(program, sourceFile!);
+
+		const main = extracted.symbols.find((s) => s.name === 'main');
+		assert.strictEqual(main?.kind, 'function');
+		assert.strictEqual(main?.exported, true);
+
+		const calls = extracted.relations.filter((r) => r.kind === 'calls');
+		assert.strictEqual(calls.length, 1);
+		assert.strictEqual(calls[0].from.name, 'main');
+		assert.strictEqual(calls[0].target.name, 'helper');
+	});
+
+	test('extracts a call made directly in an arrow function concise body', () => {
+		const filePath = writeTempFile(
+			tmpDir,
+			'concise-arrow.ts',
+			['function helper(): void {}', 'const run = () => helper();'].join('\n')
+		);
+
+		const program = createProgramForFiles([filePath]);
+		const sourceFile = program.getSourceFile(filePath);
+		const extracted = extractFile(program, sourceFile!);
+
+		const calls = extracted.relations.filter((r) => r.kind === 'calls');
+		assert.strictEqual(calls.length, 1);
+		assert.strictEqual(calls[0].from.name, 'run');
+		assert.strictEqual(calls[0].target.name, 'helper');
+	});
+
+	test('extracts a class field arrow function as a method symbol, calls included', () => {
+		const filePath = writeTempFile(
+			tmpDir,
+			'field-arrow.ts',
+			['class Controller {', '  helper(): void {}', '  get = () => {', '    this.helper();', '  };', '}'].join('\n')
+		);
+
+		const program = createProgramForFiles([filePath]);
+		const sourceFile = program.getSourceFile(filePath);
+		const extracted = extractFile(program, sourceFile!);
+
+		const getMember = extracted.symbols.find((s) => s.name === 'get');
+		assert.strictEqual(getMember?.kind, 'method');
+		assert.strictEqual(getMember?.parentName, 'Controller');
+
+		const calls = extracted.relations.filter((r) => r.kind === 'calls');
+		assert.strictEqual(calls.length, 1);
+		assert.strictEqual(calls[0].from.name, 'get');
+		assert.strictEqual(calls[0].target.name, 'helper');
+	});
+
 	test('resolves named import bindings to their declaration, following aliases', () => {
 		const utilFile = writeTempFile(tmpDir, 'util.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 		const filePath = writeTempFile(tmpDir, 'consumer.ts', "import { add as sum } from './util';\n");

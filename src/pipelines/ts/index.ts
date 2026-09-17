@@ -38,5 +38,5 @@ export function runTsPipeline(rootDir: string, options: RunTsPipelineOptions = {
 	const sourceFiles = getSourceFilesOf(program, fileNames);
 	const extractedFiles = extractProgram(program, sourceFiles);
 
-	return normalizeToGraph(program, extractedFiles, { knownFilePaths: options.knownFiles });
+	return normalizeToGraph(program, extractedFiles, rootDir, { knownFilePaths: options.knownFiles });
 }

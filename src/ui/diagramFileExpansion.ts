@@ -4,8 +4,7 @@
 // App.tsx's own merge step), a member file that only ever gets imported — no
 // outgoing edges of its own within that folder — adds nothing to "what does
 // this folder do" and stays hidden until the user expands the file that
-// imports it, the same progressive-reveal idea ./entryPointFlowExpansion
-// uses for the flow view's call chain. Restricted to nested nodes (a
+// imports it. Restricted to nested nodes (a
 // `parentId` set, i.e. already-merged folder members): a top-level node — a
 // folder box or a root-level file — is always visible regardless of its own
 // in/out degree, since those are "main nodes" the layers view never hides.

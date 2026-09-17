@@ -5,7 +5,7 @@
 // class (when a method/function belongs to one) or by file otherwise, and
 // steps are the target's own outgoing `calls` edges, ordered the way they
 // actually happen in source code (`metadata.order`), depth-limited and
-// cycle-safe like ../ui/entryPointFlow's traversal.
+// cycle-safe like ../ui/activeFileFlow's traversal.
 import * as path from 'path';
 import { NodeKind, SourceRange } from '../pipelines/model';
 import { ProjectGraphStore, StoredEdge, StoredNode } from './store';

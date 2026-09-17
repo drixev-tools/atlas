@@ -1,5 +1,5 @@
 // Shared "Export" plumbing for the three diagram webviews (./graphPanel,
-// ./entryPointFlowPanel, ./sequenceDiagramView): a native VS Code save dialog
+// ./activeFileFlowPanel, ./sequenceDiagramView): a native VS Code save dialog
 // picks both the destination and the format (via its file-type dropdown), so
 // each panel only needs to turn its own data into a Markdown string (for the
 // `markdown` format) or forward an `export:capture` request to the webview

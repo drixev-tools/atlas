@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace } from '../../ui/analyzeWorkspace';
 import { CALCULATE_IMPACT_COMMAND } from '../../ui/impact';
 import { OPEN_ARCHITECTURE_COMMAND } from '../../ui/architecture';
-import { SHOW_ENTRY_POINT_FLOW_COMMAND } from '../../ui/entryPointFlow';
+import { SHOW_ACTIVE_FILE_FLOW_COMMAND } from '../../ui/activeFileFlow';
 import { SHOW_IDENTIFIED_ARCHITECTURE_COMMAND } from '../../ui/identifiedArchitecture';
 import { StoredNode } from '../../core/store';
 import {
@@ -63,7 +63,7 @@ suite('Sidebar Panel', () => {
 						ANALYZE_WORKSPACE_COMMAND,
 						OPEN_ARCHITECTURE_COMMAND,
 						CALCULATE_IMPACT_COMMAND,
-						SHOW_ENTRY_POINT_FLOW_COMMAND,
+						SHOW_ACTIVE_FILE_FLOW_COMMAND,
 						SHOW_IDENTIFIED_ARCHITECTURE_COMMAND
 					]
 				);

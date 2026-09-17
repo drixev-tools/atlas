@@ -83,6 +83,21 @@ export function buildArchitectureFileLevelData(
 	return { model: attachDiagramMetrics(model, metricsByNodeId), entryPointFileIds };
 }
 
+/** The whole-project, ungrouped file-level `DiagramModel` for the architecture view's "Files" mode: every file in the graph as its own node, connected by its real import/calls/etc. edges, with no folder grouping at all — the flat counterpart to `buildArchitectureLayerData`'s default folder-collapsed view. */
+export function buildArchitectureFlatFileData(
+	store: ProjectGraphStore,
+	graph: StoredGraph,
+	changedFiles?: readonly string[]
+): ArchitectureFileLevelData {
+	const { model, filePathsByNodeId } = aggregateDiagramModelByFile(graph);
+	const metricsByNodeId = computeDiagramMetrics(store, graph, model, filePathsByNodeId, { changedFiles });
+
+	const entryPointFilePaths = toEntryPointFilePathSet(detectEntryPoints(store));
+	const entryPointFileIds = model.nodes.filter((node) => node.filePath && entryPointFilePaths.has(node.filePath)).map((node) => node.id);
+
+	return { model: attachDiagramMetrics(model, metricsByNodeId), entryPointFileIds };
+}
+
 function toEntryPointFilePathSet(entryPoints: readonly EntryPoint[]): Set<string> {
 	return new Set(entryPoints.map((entryPoint) => entryPoint.filePath).filter((filePath): filePath is string => Boolean(filePath)));
 }

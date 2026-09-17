@@ -10,7 +10,7 @@
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { DiagramMetrics } from '../../core/diagramModel';
-import { DIAGRAM_KIND_VISUALS, DiagramCardKind, layerTintClassName } from './visualSystem';
+import { DIAGRAM_KIND_VISUALS, DiagramCardKind, layerTintClassName, visibleExternalDependencies } from './visualSystem';
 
 export interface DiagramCardData extends Record<string, unknown> {
 	kind: DiagramCardKind;
@@ -19,25 +19,32 @@ export interface DiagramCardData extends Record<string, unknown> {
 	metrics?: DiagramMetrics;
 	hasEntryPoint: boolean;
 	isSelected: boolean;
-	/** Whether this card imports a standalone file (../diagramFileExpansion) not currently on canvas — the files view's cue that clicking this card expands it instead of opening the Entry Point Flow view. */
+	/** Whether this card imports a standalone file (../diagramFileExpansion) not currently on canvas — the files view's cue that clicking this card expands it instead of opening the Active File Flow view. */
 	hasHiddenChildren?: boolean;
 	isExpanded?: boolean;
+	showFanMetrics?: boolean;
 }
 
 export type DiagramCardFlowNode = Node<DiagramCardData, 'diagramCard'>;
 
-function MetricChips({ metrics }: { metrics: DiagramMetrics }): ReactElement {
+function MetricChips({ metrics, showFanMetrics }: { metrics: DiagramMetrics; showFanMetrics: boolean }): ReactElement {
+	const { shown, overflowCount } = visibleExternalDependencies(metrics.externalDependencies);
 	return (
 		<div className="ag-card-metrics">
 			{metrics.fileCount > 1 && <span className="ag-chip">{metrics.fileCount} files</span>}
 			{metrics.symbolCount > 0 && <span className="ag-chip">{metrics.symbolCount} symbols</span>}
-			<span className="ag-chip">{metrics.fanIn}→ ·  →{metrics.fanOut}</span>
+			{showFanMetrics && <span className="ag-chip">{metrics.fanIn}→ ·  →{metrics.fanOut}</span>}
 			{metrics.changedFileCount > 0 && <span className="ag-chip">{metrics.changedFileCount} changed</span>}
-			{metrics.externalDependencies.slice(0, 3).map((dependency) => (
+			{shown.map((dependency) => (
 				<span key={dependency.name} className="ag-chip ag-chip-external" title={`${dependency.name} (${dependency.count})`}>
 					<span aria-hidden="true">↗</span> {dependency.name}
 				</span>
 			))}
+			{overflowCount > 0 && (
+				<span className="ag-chip" title={`${overflowCount} more external ${overflowCount === 1 ? 'dependency' : 'dependencies'}`}>
+					+{overflowCount}
+				</span>
+			)}
 		</div>
 	);
 }
@@ -65,7 +72,7 @@ export function DiagramCardNode(props: NodeProps<DiagramCardFlowNode>): ReactEle
 				{data.hasEntryPoint && <EntryBadge />}
 			</div>
 			{data.purpose && <div className="ag-card-purpose">{data.purpose}</div>}
-			{data.metrics && <MetricChips metrics={data.metrics} />}
+			{data.metrics && <MetricChips metrics={data.metrics} showFanMetrics={data.showFanMetrics ?? true} />}
 			{data.hasHiddenChildren && (
 				<div className="ag-card-hint" aria-hidden="true">
 					{data.isExpanded ? '−' : '+'}

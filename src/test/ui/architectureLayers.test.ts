@@ -5,6 +5,7 @@ import { ProjectGraphStore } from '../../core/store';
 import {
 	applyLayerNamingResults,
 	buildArchitectureFileLevelData,
+	buildArchitectureFlatFileData,
 	buildArchitectureLayerData,
 	hashMemberFilePaths,
 	resolveCachedLayerLabels,
@@ -88,6 +89,44 @@ suite('buildArchitectureFileLevelData', () => {
 
 		assert.deepStrictEqual(model.nodes.map((n) => n.id), [uiFile.id]);
 		assert.strictEqual(model.nodes[0].metrics?.fileCount, 1);
+	});
+});
+
+suite('buildArchitectureFlatFileData', () => {
+	let store: ProjectGraphStore;
+
+	setup(async () => {
+		store = await ProjectGraphStore.open();
+	});
+
+	teardown(() => {
+		store.close();
+	});
+
+	test('includes every file in the graph, ungrouped, connected by their real edges', () => {
+		const uiFile = fileNode(path.join('ui', 'a.ts'));
+		const coreFile = fileNode(path.join('core', 'b.ts'));
+		store.upsertNodes([uiFile, coreFile]);
+		store.upsertEdge(edge('imports:1', 'imports', uiFile.id, coreFile.id));
+
+		const graph = store.getGraph();
+		const { model } = buildArchitectureFlatFileData(store, graph);
+
+		assert.deepStrictEqual(model.nodes.map((n) => n.id).sort(), [coreFile.id, uiFile.id]);
+		assert.strictEqual(model.nodes.every((n) => n.parentId === undefined), true);
+		assert.ok(model.edges.some((e) => e.source === uiFile.id && e.target === coreFile.id));
+	});
+
+	test('flags a file with a detected entry point', () => {
+		const rootFile = fileNode('extension.ts');
+		const activate: GraphNode = { id: 'func:activate', kind: 'function', name: 'activate', filePath: rootFile.filePath, exported: true };
+		store.upsertNodes([rootFile, activate]);
+		store.upsertEdge(edge('contains:1', 'contains', rootFile.id, activate.id));
+
+		const graph = store.getGraph();
+		const { entryPointFileIds } = buildArchitectureFlatFileData(store, graph);
+
+		assert.deepStrictEqual(entryPointFileIds, [rootFile.id]);
 	});
 });
 

@@ -40,7 +40,10 @@ suite('aggregateDiagramModelByFolder', () => {
 	});
 
 	test('nests deeper folder levels under their parent group up to the configured depth', () => {
-		const graph: StoredGraph = { nodes: [fileNode(path.join('src', 'core', 'store.ts'))], edges: [] };
+		const graph: StoredGraph = {
+			nodes: [fileNode(path.join('src', 'core', 'store.ts')), fileNode(path.join('src', 'design', 'settings.ts'))],
+			edges: []
+		};
 
 		const { model, filePathsByNodeId } = aggregateDiagramModelByFolder(graph, { rootDir: ROOT, depth: 2 });
 
@@ -50,6 +53,40 @@ suite('aggregateDiagramModelByFolder', () => {
 		assert.strictEqual(srcCore?.parentId, 'group:src');
 		assert.deepStrictEqual(filePathsByNodeId.get('group:src'), undefined);
 		assert.deepStrictEqual(filePathsByNodeId.get('group:src/core'), [path.join(ROOT, 'src', 'core', 'store.ts')]);
+	});
+
+	test('collapses an intermediate folder that nests nothing but a single leaf group into one node', () => {
+		const graph: StoredGraph = { nodes: [fileNode(path.join('backend', 'src', 'server.ts'))], edges: [] };
+
+		const { model, filePathsByNodeId } = aggregateDiagramModelByFolder(graph, { rootDir: ROOT, depth: 2 });
+
+		assert.deepStrictEqual(model.nodes, [{ id: 'group:backend/src', kind: 'group', label: 'backend/src', parentId: undefined }]);
+		assert.deepStrictEqual(filePathsByNodeId.get('group:backend/src'), [path.join(ROOT, 'backend', 'src', 'server.ts')]);
+	});
+
+	test('collapses the same single-child pattern independently under every root folder in a monorepo', () => {
+		const graph: StoredGraph = {
+			nodes: [
+				fileNode(path.join('backend', 'src', 'server.ts')),
+				fileNode(path.join('frontend', 'src', 'app.tsx')),
+				fileNode(path.join('shared', 'src', 'types.ts'))
+			],
+			edges: []
+		};
+
+		const { model, filePathsByNodeId } = aggregateDiagramModelByFolder(graph, { rootDir: ROOT, depth: 2 });
+
+		assert.deepStrictEqual(
+			model.nodes.map((n) => ({ id: n.id, label: n.label, parentId: n.parentId })).sort((a, b) => a.id.localeCompare(b.id)),
+			[
+				{ id: 'group:backend/src', label: 'backend/src', parentId: undefined },
+				{ id: 'group:frontend/src', label: 'frontend/src', parentId: undefined },
+				{ id: 'group:shared/src', label: 'shared/src', parentId: undefined }
+			]
+		);
+		assert.deepStrictEqual(filePathsByNodeId.get('group:backend/src'), [path.join(ROOT, 'backend', 'src', 'server.ts')]);
+		assert.deepStrictEqual(filePathsByNodeId.get('group:frontend/src'), [path.join(ROOT, 'frontend', 'src', 'app.tsx')]);
+		assert.deepStrictEqual(filePathsByNodeId.get('group:shared/src'), [path.join(ROOT, 'shared', 'src', 'types.ts')]);
 	});
 
 	test('a file with no folder becomes its own top-level file node instead of a synthetic root group', () => {

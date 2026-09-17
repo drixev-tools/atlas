@@ -8,7 +8,7 @@ import { ProjectGraphStore, StoredNode } from '../core/store';
 import { ANALYZE_WORKSPACE_COMMAND } from './analyzeWorkspace';
 import { CALCULATE_IMPACT_COMMAND } from './impact';
 import { OPEN_ARCHITECTURE_COMMAND } from './architecture';
-import { SHOW_ENTRY_POINT_FLOW_COMMAND } from './entryPointFlow';
+import { SHOW_ACTIVE_FILE_FLOW_COMMAND } from './activeFileFlow';
 import { SHOW_IDENTIFIED_ARCHITECTURE_COMMAND } from './identifiedArchitecture';
 import { GraphPanel } from './graphPanel';
 import { buildProjectFileTree, SidebarTreeNode } from './sidebarData';
@@ -30,7 +30,7 @@ const SHORTCUTS: ShortcutElement[] = [
 	{ kind: 'shortcut', label: 'Analyze Workspace', commandId: ANALYZE_WORKSPACE_COMMAND, icon: 'sync' },
 	{ kind: 'shortcut', label: 'Open Architecture', commandId: OPEN_ARCHITECTURE_COMMAND, icon: 'graph' },
 	{ kind: 'shortcut', label: 'Calculate Impact', commandId: CALCULATE_IMPACT_COMMAND, icon: 'pulse' },
-	{ kind: 'shortcut', label: 'Show Entry Point Flow', commandId: SHOW_ENTRY_POINT_FLOW_COMMAND, icon: 'debug-step-into' },
+	{ kind: 'shortcut', label: 'Show Active File Flow', commandId: SHOW_ACTIVE_FILE_FLOW_COMMAND, icon: 'debug-step-into' },
 	{ kind: 'shortcut', label: 'Show Identified Architecture', commandId: SHOW_IDENTIFIED_ARCHITECTURE_COMMAND, icon: 'wand' }
 ];
 

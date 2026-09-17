@@ -14,7 +14,7 @@ import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, type Ed
 import { DiagramModel } from '../../core/diagramModel';
 import { computeDiagramLayout } from '../diagramLayout';
 import { DiagramCardData, DiagramCardFlowNode, DiagramCardNode, DiagramGroupData, DiagramGroupFlowNode, DiagramGroupNode } from './DiagramCardNode';
-import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS } from './visualSystem';
+import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
 import { ExportButton } from './ExportButton';
 import { captureViewExport } from './exportCapture';
 import { IdentifiedArchitectureExportFormat, IdentifiedArchitectureHostToWebviewMessage, IdentifiedArchitecturePayload } from './identifiedArchitectureProtocol';
@@ -82,10 +82,6 @@ export function IdentifiedArchitectureApp(): ReactElement {
 	const model = payload?.model ?? EMPTY_MODEL;
 
 	const orderedNodes = useMemo(() => topologicallyOrderNodes(model), [model]);
-	const boxes = useMemo(
-		() => computeDiagramLayout(orderedNodes.map((node) => ({ id: node.id, parentId: node.parentId })), model.edges),
-		[orderedNodes, model]
-	);
 	const hasChildrenById = useMemo(() => {
 		const result = new Set<string>();
 		for (const node of orderedNodes) {
@@ -95,6 +91,19 @@ export function IdentifiedArchitectureApp(): ReactElement {
 		}
 		return result;
 	}, [orderedNodes]);
+	const boxes = useMemo(
+		() =>
+			computeDiagramLayout(
+				orderedNodes.map((node) => {
+					const isGroupContainer = node.kind === 'group' && hasChildrenById.has(node.id);
+					return isGroupContainer
+						? { id: node.id, parentId: node.parentId }
+						: { id: node.id, parentId: node.parentId, height: estimateDiagramCardHeight(false, node.metrics) };
+				}),
+				model.edges
+			),
+		[orderedNodes, model, hasChildrenById]
+	);
 	const siblingIndexById = useMemo(() => computeSiblingIndex(orderedNodes), [orderedNodes]);
 
 	const flowNodes: (DiagramCardFlowNode | DiagramGroupFlowNode)[] = useMemo(
@@ -167,6 +176,7 @@ export function IdentifiedArchitectureApp(): ReactElement {
 						nodeTypes={DIAGRAM_NODE_TYPES}
 						onNodeClick={handleNodeClick}
 						fitView
+						nodesConnectable={false}
 						proOptions={{ hideAttribution: true }}
 					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
