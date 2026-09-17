@@ -5,7 +5,7 @@
 // narrow `LayerNamingTarget` list instead of importing
 // `../core/moduleAggregation`'s `DiagramModel` directly, keeping this
 // design-layer module free of any dependency on the core layer, like
-// ./impactClient and ./sequenceDiagramClient.
+// ./sequenceDiagramClient.
 import Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
 
@@ -31,8 +31,7 @@ export interface LayerNamingResult {
  * What the architecture view (../ui/architectureLayers) needs from Claude,
  * narrowed to an interface — separate from the concrete
  * `AnthropicClaudeLayerNamingClient` — so tests can supply a fake response
- * instead of making a real network call, matching `ClaudeImpactClient`
- * (./impactClient).
+ * instead of making a real network call.
  */
 export interface ClaudeLayerNamingClient {
 	nameLayers(targets: LayerNamingTarget[]): Promise<LayerNamingResult[]>;

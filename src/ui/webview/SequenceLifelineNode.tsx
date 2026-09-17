@@ -5,7 +5,11 @@
 // becomes a named `Handle` positioned at its step's row (../sequenceDiagramLayout
 // already computed each handle's `top`/`side`), rather than a fixed
 // left/right pair, since a lifeline can send and receive many messages at
-// different heights.
+// different heights. A `'center'` handle uses Position.Top, whose default CSS
+// already centers it horizontally on the node — landing it exactly on the
+// dashed track below — so a message line runs track-to-track between two
+// lifelines instead of card-edge-to-card-edge; only a `'loop'` (self-message)
+// handle sits on Position.Right instead, offset out from the track.
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { SequenceHandleLayout, SequenceHandleSide } from '../sequenceDiagramLayout';
@@ -14,12 +18,12 @@ import { DIAGRAM_KIND_VISUALS } from './visualSystem';
 const HEADER_HEIGHT = 56;
 
 function toPosition(side: SequenceHandleSide): Position {
-	return side === 'left' ? Position.Left : Position.Right;
+	return side === 'loop' ? Position.Right : Position.Top;
 }
 
 export interface SequenceLifelineData extends Record<string, unknown> {
 	label: string;
-	kind: 'file' | 'class';
+	kind: 'file' | 'class' | 'function';
 	isTarget: boolean;
 	totalHeight: number;
 	sourceHandles: SequenceHandleLayout[];

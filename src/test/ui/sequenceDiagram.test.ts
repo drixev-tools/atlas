@@ -7,11 +7,11 @@ import {
 	applySequenceDiagramNarration,
 	buildFallbackSequenceDiagramViewState,
 	buildFallbackSequenceSummary,
-	loadSequenceContext,
+	loadActiveFileSequenceContext,
+	loadSequenceFunctionCandidates,
 	toSequenceDiagramNarrationInput
 } from '../../ui/sequenceDiagram';
 import { SequenceContext } from '../../core/sequenceContext';
-import { ProjectGraphStore } from '../../core/store';
 
 function writeFile(dir: string, name: string, contents: string): string {
 	const filePath = path.join(dir, name);
@@ -20,7 +20,7 @@ function writeFile(dir: string, name: string, contents: string): string {
 	return filePath;
 }
 
-suite('loadSequenceContext', () => {
+suite('loadSequenceFunctionCandidates', () => {
 	let tmpDir: string;
 	let dbPath: string;
 
@@ -33,32 +33,69 @@ suite('loadSequenceContext', () => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test('builds the outgoing call chain for a function node from the analyzed Project Graph', async () => {
-		writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
-		writeFile(tmpDir, 'app.ts', "import { add } from './math';\nexport function run(): number {\n\treturn add(1, 2);\n}\n");
+	test('lists the functions declared in the active file, in declaration order', async () => {
+		const appPath = writeFile(tmpDir, 'app.ts', 'export function first(): void {}\nexport function second(): void {}\n');
 		await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-		const store = await ProjectGraphStore.open({ filePath: dbPath });
-		const runNode = store.listNodes({ kind: 'function' }).find((node) => node.name === 'run');
-		store.close();
-		assert.ok(runNode, 'expected a "run" function node in the analyzed graph');
+		const resolved = await loadSequenceFunctionCandidates(dbPath, appPath);
 
-		const context = await loadSequenceContext(dbPath, runNode.id);
-
-		assert.strictEqual(context?.target.name, 'run');
-		assert.strictEqual(context?.steps.length, 1);
-		const callee = context?.participants.find((p) => p.id === context.steps[0].toParticipantId);
-		assert.strictEqual(callee?.name, 'add');
-		assert.strictEqual(path.resolve(callee?.filePath ?? ''), path.resolve(tmpDir, 'math.ts'));
+		assert.deepStrictEqual(
+			resolved?.candidates.map((candidate) => candidate.name),
+			['first', 'second']
+		);
 	});
 
-	test('returns undefined for a class node (outside function/file scope)', async () => {
-		writeFile(tmpDir, 'thing.ts', 'export class Thing {}\n');
+	test('returns undefined for a file outside the Project Graph', async () => {
+		await analyzeWorkspace({ rootDir: tmpDir, dbPath });
+		const resolved = await loadSequenceFunctionCandidates(dbPath, path.join(tmpDir, 'missing.ts'));
+		assert.strictEqual(resolved, undefined);
+	});
+});
+
+suite('loadActiveFileSequenceContext', () => {
+	let tmpDir: string;
+	let dbPath: string;
+
+	setup(async () => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sequence-'));
+		dbPath = path.join(tmpDir, 'project-graph.db');
+	});
+
+	teardown(() => {
+		fs.rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	test("combines the active file's import ancestry with the chosen function's own outgoing call chain", async () => {
+		writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
+		const appPath = writeFile(tmpDir, 'app.ts', "import { add } from './math';\nexport function run(): number {\n\treturn add(1, 2);\n}\n");
+		writeFile(tmpDir, 'index.ts', "import './app';\n");
 		await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-		const fileId = `file:${path.resolve(tmpDir, 'thing.ts')}`;
-		const context = await loadSequenceContext(dbPath, fileId);
-		assert.ok(context, 'expected a context for the file node itself');
+		const resolved = await loadSequenceFunctionCandidates(dbPath, appPath);
+		const runCandidate = resolved?.candidates.find((candidate) => candidate.name === 'run');
+		assert.ok(resolved && runCandidate, 'expected a "run" function candidate in app.ts');
+
+		const context = await loadActiveFileSequenceContext(dbPath, resolved.activeFileId, runCandidate.id);
+		assert.ok(context, 'expected a combined sequence context');
+
+		assert.strictEqual(context.target.name, 'run');
+		assert.ok(
+			context.lifelines.some((lifeline) => lifeline.label === 'index.ts'),
+			'expected the ancestor file to appear as a lifeline'
+		);
+		const callStep = context.steps.find((step) => step.kind === 'calls');
+		const callee = context.participants.find((participant) => participant.id === callStep?.toParticipantId);
+		assert.strictEqual(callee?.name, 'add');
+	});
+
+	test('returns undefined when the function id is no longer in the graph', async () => {
+		const appPath = writeFile(tmpDir, 'app.ts', 'export function run(): void {}\n');
+		await analyzeWorkspace({ rootDir: tmpDir, dbPath });
+		const resolved = await loadSequenceFunctionCandidates(dbPath, appPath);
+		assert.ok(resolved);
+
+		const context = await loadActiveFileSequenceContext(dbPath, resolved.activeFileId, 'fn:missing');
+		assert.strictEqual(context, undefined);
 	});
 });
 
@@ -81,7 +118,7 @@ suite('toSequenceDiagramNarrationInput', () => {
 		const input = toSequenceDiagramNarrationInput(sampleContext());
 
 		assert.deepStrictEqual(input.target, { name: 'foo', kind: 'function' });
-		assert.deepStrictEqual(input.steps, [{ order: 0, from: 'foo', to: 'qux', defaultAction: 'calls qux' }]);
+		assert.deepStrictEqual(input.steps, [{ order: 0, from: 'foo', to: 'qux', defaultAction: 'calls qux', kind: 'calls' }]);
 	});
 });
 
@@ -112,7 +149,9 @@ suite('buildFallbackSequenceDiagramViewState', () => {
 		assert.strictEqual(state.aiGenerated, false);
 		assert.deepStrictEqual(state.lifelines, sampleContext().lifelines);
 		assert.deepStrictEqual(state.participants, sampleContext().participants);
-		assert.deepStrictEqual(state.steps, [{ id: 'calls:foo:qux', order: 0, fromParticipantId: 'fn:foo', toParticipantId: 'fn:qux', label: 'calls qux', line: 3 }]);
+		assert.deepStrictEqual(state.steps, [
+			{ id: 'calls:foo:qux', order: 0, fromParticipantId: 'fn:foo', toParticipantId: 'fn:qux', label: 'calls qux', kind: 'calls', line: 3 }
+		]);
 	});
 });
 

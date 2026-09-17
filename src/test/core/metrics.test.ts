@@ -23,9 +23,9 @@ suite('MementoUsageMetricsStore', () => {
 
 		await store.record('analyzeWorkspace');
 		await store.record('analyzeWorkspace');
-		await store.record('calculateImpact');
+		await store.record('openArchitecture');
 
-		assert.deepStrictEqual(store.getAll(), { analyzeWorkspace: 2, calculateImpact: 1 });
+		assert.deepStrictEqual(store.getAll(), { analyzeWorkspace: 2, openArchitecture: 1 });
 	});
 
 	test('tracks every usage metric event independently', async () => {
@@ -33,7 +33,7 @@ suite('MementoUsageMetricsStore', () => {
 		const events: UsageMetrics = {
 			analyzeWorkspace: 1,
 			openArchitecture: 1,
-			calculateImpact: 1,
+			showSequenceDiagram: 1,
 			designProject: 1,
 			incrementalUpdate: 1
 		};

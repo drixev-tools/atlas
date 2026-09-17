@@ -28,7 +28,7 @@ const PROPOSE_ARCHITECTURE_TOOL_NAME = 'propose_architecture';
  * What `designProject` (../ui/designProject) needs from Claude, narrowed to
  * an interface — separate from the concrete `AnthropicClaudeDesignClient` —
  * so tests can supply a fake response instead of making a real network call,
- * matching `GitStatusSource` (../core/gitStatus) and `ApiKeyStore` (./apiKey).
+ * matching `ApiKeyStore` (./apiKey).
  */
 export interface ClaudeDesignClient {
 	proposeArchitecture(intent: ProjectIntent): Promise<ProposedArchitecture>;

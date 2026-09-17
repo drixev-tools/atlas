@@ -1,30 +1,58 @@
-// "Show Sequence Diagram" orchestration: reads the target's call chain from
-// the Project Graph (../core/sequenceContext) and maps it into what
-// ../design/sequenceDiagramClient's Claude client needs, mirroring how
-// ./impact wires ../core/impact into ../design/impactClient. Unlike the
+// "Show Sequence Diagram" orchestration: reads the active file's import
+// ancestry plus a chosen function's call chain from the Project Graph
+// (../core/sequenceContext) and maps it into what
+// ../design/sequenceDiagramClient's Claude client needs. Unlike the
 // import-based approximation this replaces, the diagram itself (lifelines,
 // participants, steps and their order) is always fully derivable from the
 // Project Graph — `buildFallbackSequenceDiagramViewState` needs no API key at
-// all; Claude only relabels steps and writes a summary, exactly like
-// `buildFallbackExplanation`/`buildImpactViewState` do for Calculate Impact.
-// The dedicated view itself lives in ./sequenceDiagramView, kept separate
-// like ./impactView is from ./impact.
+// all; Claude only relabels steps and writes a summary.
+// The dedicated view itself lives in ./sequenceDiagramView, kept separate.
 import { NodeKind } from '../pipelines/model';
-import { buildSequenceContext, SequenceContext, SequenceContextOptions, SequenceLifeline, SequenceParticipant } from '../core/sequenceContext';
+import { resolveActiveFileId } from './activeFileFlow';
+import {
+	buildActiveFileSequenceContext,
+	listSequenceFunctionCandidates,
+	SequenceContext,
+	SequenceContextOptions,
+	SequenceFunctionCandidate,
+	SequenceLifeline,
+	SequenceParticipant,
+	SequenceStepKind
+} from '../core/sequenceContext';
 import { ProjectGraphStore } from '../core/store';
 import { SequenceDiagramContextInput, SequenceDiagramNarration, SequenceDiagramStepLabel } from '../design/sequenceDiagramClient';
 
 export const SHOW_SEQUENCE_DIAGRAM_COMMAND = 'agentGraph.showSequenceDiagram';
 
-/** Reads `nodeId`'s call chain from the Project Graph at `dbPath`. `undefined` when the node isn't a function/file, or is no longer in the graph. */
-export async function loadSequenceContext(
+export interface SequenceFunctionCandidates {
+	activeFileId: string;
+	candidates: SequenceFunctionCandidate[];
+}
+
+/** The functions/methods `activeFilePath` declares, for the "which function?" Quick Pick. `undefined` when the file isn't in the Project Graph at `dbPath`. */
+export async function loadSequenceFunctionCandidates(dbPath: string | undefined, activeFilePath: string): Promise<SequenceFunctionCandidates | undefined> {
+	const store = await ProjectGraphStore.open({ filePath: dbPath });
+	try {
+		const activeFileId = resolveActiveFileId(store.getGraph(), activeFilePath);
+		if (!activeFileId) {
+			return undefined;
+		}
+		return { activeFileId, candidates: listSequenceFunctionCandidates(store, activeFileId) };
+	} finally {
+		store.close();
+	}
+}
+
+/** Builds `functionId`'s combined ancestry-plus-call-chain from the Project Graph at `dbPath` (../core/sequenceContext's `buildActiveFileSequenceContext`). `undefined` when `activeFileId`/`functionId` are no longer in the graph. */
+export async function loadActiveFileSequenceContext(
 	dbPath: string | undefined,
-	nodeId: string,
+	activeFileId: string,
+	functionId: string,
 	options?: SequenceContextOptions
 ): Promise<SequenceContext | undefined> {
 	const store = await ProjectGraphStore.open({ filePath: dbPath });
 	try {
-		return buildSequenceContext(store, nodeId, options);
+		return buildActiveFileSequenceContext(store, activeFileId, functionId, options);
 	} finally {
 		store.close();
 	}
@@ -38,7 +66,8 @@ export function toSequenceDiagramNarrationInput(context: SequenceContext): Seque
 			order: step.order,
 			from: nameById.get(step.fromParticipantId) ?? step.fromParticipantId,
 			to: nameById.get(step.toParticipantId) ?? step.toParticipantId,
-			defaultAction: step.action
+			defaultAction: step.action,
+			kind: step.kind ?? 'calls'
 		}))
 	};
 }
@@ -61,6 +90,7 @@ export interface SequenceDiagramStepView {
 	fromParticipantId: string;
 	toParticipantId: string;
 	label: string;
+	kind: SequenceStepKind;
 	line?: number;
 }
 
@@ -85,7 +115,8 @@ function toStepViews(context: SequenceContext, stepLabelsByOrder: ReadonlyMap<nu
 			order: step.order,
 			fromParticipantId: step.fromParticipantId,
 			toParticipantId: step.toParticipantId,
-			label: stepLabelsByOrder?.get(step.order) ?? step.action
+			label: stepLabelsByOrder?.get(step.order) ?? step.action,
+			kind: step.kind ?? 'calls'
 		};
 		if (step.line !== undefined) {
 			view.line = step.line;

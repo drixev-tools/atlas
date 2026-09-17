@@ -2,36 +2,28 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
 	AnthropicClaudeArchitectureIdentificationClient,
-	AnthropicClaudeImpactClient,
 	AnthropicClaudeSequenceDiagramClient,
 	AuthenticationError,
 	resolveClaudeSettings,
 	SecretStorageApiKeyStore,
 	VsCodeClaudeSettingsStore
 } from './design';
-import { GitStatusProvider } from './core/gitStatus';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
-import { ProjectGraphStore, StoredNode } from './core/store';
+import { ProjectGraphStore } from './core/store';
 import {
 	ActiveFileFlowPanel,
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
 	applyArchitectureIdentification,
 	applySequenceDiagramNarration,
-	buildEmptyImpactViewState,
-	buildFallbackExplanation,
 	buildFallbackSequenceDiagramViewState,
-	buildImpactViewState,
-	CalculateImpactResult,
-	CALCULATE_IMPACT_COMMAND,
-	calculateImpact,
 	DESIGN_PROJECT_COMMAND,
 	FOCUS_DESIGN_PROJECT_VIEW_COMMAND,
 	GraphPanel,
 	identifiedArchitectureEntities,
 	IdentifiedArchitecturePanel,
-	ImpactPanel,
-	loadSequenceContext,
+	loadActiveFileSequenceContext,
+	loadSequenceFunctionCandidates,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
 	registerDesignProjectView,
@@ -42,28 +34,18 @@ import {
 	SHOW_ACTIVE_FILE_FLOW_COMMAND,
 	SHOW_IDENTIFIED_ARCHITECTURE_COMMAND,
 	SHOW_SEQUENCE_DIAGRAM_COMMAND,
-	SidebarTreeNode,
 	toArchitectureIdentificationEntities,
-	toImpactSummaryInput,
 	toSequenceDiagramNarrationInput
 } from './ui';
 
 export {
 	ANALYZE_WORKSPACE_COMMAND,
-	CALCULATE_IMPACT_COMMAND,
 	DESIGN_PROJECT_COMMAND,
 	OPEN_ARCHITECTURE_COMMAND,
 	SHOW_ACTIVE_FILE_FLOW_COMMAND,
 	SHOW_IDENTIFIED_ARCHITECTURE_COMMAND,
 	SHOW_SEQUENCE_DIAGRAM_COMMAND
 };
-
-/**
- * Reused across "Calculate Impact" invocations so its short git-status cache
- * (see `GitStatusProvider`) is actually effective instead of starting cold
- * every time the command runs.
- */
-let gitStatusProvider: GitStatusProvider | undefined;
 
 /**
  * Sidebar Panel's Tree View provider, refreshed after anything that changes
@@ -79,10 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(ANALYZE_WORKSPACE_COMMAND, () => runAnalyzeWorkspaceCommand(context)),
 		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context)),
-		vscode.commands.registerCommand(CALCULATE_IMPACT_COMMAND, () => runCalculateImpactCommand(context)),
-		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, (element: SidebarTreeNode | undefined) =>
-			runShowSequenceDiagramCommand(context, element)
-		),
+		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, () => runShowSequenceDiagramCommand(context)),
 		vscode.commands.registerCommand(SHOW_ACTIVE_FILE_FLOW_COMMAND, () => runShowActiveFileFlowCommand(context)),
 		vscode.commands.registerCommand(SHOW_IDENTIFIED_ARCHITECTURE_COMMAND, () => runShowIdentifiedArchitectureCommand(context)),
 		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => vscode.commands.executeCommand(FOCUS_DESIGN_PROJECT_VIEW_COMMAND))
@@ -105,7 +84,6 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-	gitStatusProvider = undefined;
 	sidebarTreeProvider = undefined;
 }
 
@@ -185,119 +163,52 @@ async function openActiveFileFlowForFile(context: vscode.ExtensionContext, fileP
 }
 
 /**
- * "Project Graph: Calculate Impact" — computes the structural impact of the
- * workspace's uncommitted git changes (or, on a clean working tree, of the
- * active editor's file): their transitive consumers plus the tests related to
- * either. See `calculateImpact` for the underlying, `vscode`-free
- * orchestration this wraps; `presentImpactResult` turns that into the
- * persistent Impact view (../ui/impactView).
+ * "Show Sequence Diagram" — like "Show Active File Flow", it acts on
+ * whatever file is open in the active editor rather than a tree selection.
+ * Since a file usually declares more than one function, it first asks via a
+ * Quick Pick which one to trace, then builds that function's combined
+ * ancestry-plus-call-chain diagram (../ui/sequenceDiagram's
+ * `loadActiveFileSequenceContext`) — the active file's own import ancestry
+ * (every chain of files that leads to it) followed by the chosen function's
+ * outgoing calls — valid on its own, no API key required. When a key is
+ * configured, Claude only relabels its steps and writes a summary, falling
+ * back to the non-AI diagram on a missing key or a failed call instead of
+ * blocking the view.
  */
-async function runCalculateImpactCommand(context: vscode.ExtensionContext): Promise<void> {
-	recordUsage(context, 'calculateImpact');
-
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	if (!folder) {
-		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before calculating impact.');
+async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): Promise<void> {
+	const activeEditor = vscode.window.activeTextEditor;
+	const activeFilePath = activeEditor?.document.uri.scheme === 'file' ? activeEditor.document.uri.fsPath : undefined;
+	if (!activeFilePath) {
+		void vscode.window.showErrorMessage('Project Graph: open a file before showing its sequence diagram.');
 		return;
 	}
 
-	await vscode.window.withProgress(
-		{
-			location: vscode.ProgressLocation.Notification,
-			title: 'Project Graph: Calculating impact',
-			cancellable: false
-		},
-		async (progress) => {
-			try {
-				const result = await calculateImpact({
-					rootDir: folder.uri.fsPath,
-					dbPath: resolveGraphDbPath(context),
-					activeFilePath: vscode.window.activeTextEditor?.document.uri.fsPath,
-					gitStatus: (gitStatusProvider ??= new GitStatusProvider()),
-					onProgress: (message) => progress.report({ message })
-				});
-				await presentImpactResult(context, result);
-			} catch (error) {
-				void vscode.window.showErrorMessage(
-					`Project Graph: impact calculation failed — ${error instanceof Error ? error.message : String(error)}`
-				);
-			}
-		}
+	const dbPath = resolveGraphDbPath(context);
+	const resolved = await loadSequenceFunctionCandidates(dbPath, activeFilePath);
+	if (!resolved || resolved.candidates.length === 0) {
+		void vscode.window.showErrorMessage(
+			'Project Graph: no functions found in this file — analyze the workspace first, or open a file that declares one.'
+		);
+		return;
+	}
+
+	const picked = await vscode.window.showQuickPick(
+		resolved.candidates.map((candidate) => ({
+			label: candidate.containerName ? `${candidate.containerName}.${candidate.name}` : candidate.name,
+			description: candidate.line !== undefined ? `line ${candidate.line}` : undefined,
+			candidate
+		})),
+		{ placeHolder: 'Select a function to trace in the sequence diagram' }
 	);
-}
-
-/**
- * Opens/refreshes the persistent Impact view — including, since there's
- * nothing structural to show, the empty-target case (`buildEmptyImpactViewState`)
- * rather than a one-off notification, so re-running the command always lands
- * in the same place. For a real target set, generates the explanation via
- * Claude when an Anthropic API key is configured (../design/settings) and
- * falls back to `buildFallbackExplanation`'s non-AI summary otherwise —
- * including when Claude itself fails, e.g. a stored key Anthropic now rejects
- * (`AuthenticationError`, cleared here like `runDesignProjectCommand` does),
- * so the view is never left without an explanation. A non-auth failure (e.g.
- * network/rate-limit) also surfaces a warning toast, since the fallback
- * summary alone wouldn't otherwise tell the user AI generation was attempted
- * and failed.
- */
-async function presentImpactResult(context: vscode.ExtensionContext, result: CalculateImpactResult): Promise<void> {
-	if (result.source === 'none') {
-		ImpactPanel.createOrShow(buildEmptyImpactViewState());
+	if (!picked) {
 		return;
 	}
-	const impactResult = result as CalculateImpactResult & { source: 'git' | 'activeFile' };
-
-	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
-	const settings = await resolveClaudeSettings(claudeSettings);
-
-	let explanation: string;
-	let aiGenerated = false;
-	if (settings) {
-		try {
-			explanation = await new AnthropicClaudeImpactClient(settings.apiKey, settings.model).explainImpact(
-				toImpactSummaryInput(impactResult)
-			);
-			aiGenerated = true;
-		} catch (error) {
-			if (error instanceof AuthenticationError) {
-				await claudeSettings.clearApiKey();
-			} else {
-				void vscode.window.showWarningMessage(
-					`Project Graph: Claude explanation failed, showing a non-AI summary instead — ${
-						error instanceof Error ? error.message : String(error)
-					}`
-				);
-			}
-			explanation = buildFallbackExplanation(impactResult);
-		}
-	} else {
-		explanation = buildFallbackExplanation(impactResult);
-	}
-
-	ImpactPanel.createOrShow(buildImpactViewState(impactResult, explanation, aiGenerated));
-}
-
-/**
- * "Show Sequence Diagram" — the sidebar tree's per-node context menu action
- * (function/file nodes only, see package.json's `view/item/context`
- * contribution). Builds the node's real `calls`-edge chain from the Project
- * Graph (../ui/sequenceDiagram's `loadSequenceContext`) into a diagram that's
- * valid on its own — no API key required — then, when one is configured,
- * asks Claude only to relabel its steps and write a summary, mirroring how
- * `runCalculateImpactCommand` falls back to a non-AI explanation on a missing
- * key or a failed call instead of blocking the view.
- */
-async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext, element: SidebarTreeNode | undefined): Promise<void> {
-	if (!element || element.kind !== 'node' || (element.node.kind !== 'function' && element.node.kind !== 'file')) {
-		return;
-	}
-	const node: StoredNode = element.node;
 
 	recordUsage(context, 'showSequenceDiagram');
 
-	const sequenceContext = await loadSequenceContext(resolveGraphDbPath(context), node.id);
+	const sequenceContext = await loadActiveFileSequenceContext(dbPath, resolved.activeFileId, picked.candidate.id);
 	if (!sequenceContext) {
-		void vscode.window.showErrorMessage(`Project Graph: "${node.name}" is no longer in the Project Graph.`);
+		void vscode.window.showErrorMessage(`Project Graph: "${picked.candidate.name}" is no longer in the Project Graph.`);
 		return;
 	}
 

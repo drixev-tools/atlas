@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { ANALYZE_WORKSPACE_COMMAND, CALCULATE_IMPACT_COMMAND, DESIGN_PROJECT_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../extension';
+import { ANALYZE_WORKSPACE_COMMAND, DESIGN_PROJECT_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../extension';
 
 suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
@@ -22,11 +22,6 @@ suite('Extension Test Suite', () => {
 		assert.ok(commands.includes('agentGraph.openArchitecture'));
 	});
 
-	test('registers the "Project Graph: Calculate Impact" command', async () => {
-		const commands = await vscode.commands.getCommands(true);
-		assert.ok(commands.includes('agentGraph.calculateImpact'));
-	});
-
 	test('registers the "Project Graph: Design Project" command', async () => {
 		const commands = await vscode.commands.getCommands(true);
 		assert.ok(commands.includes('agentGraph.designProject'));
@@ -37,18 +32,13 @@ suite('Extension Test Suite', () => {
 		assert.ok(commands.includes('agentGraph.showSequenceDiagram'));
 	});
 
-	test('the show-sequence-diagram command is a no-op instead of throwing when invoked with no tree element', async () => {
+	test('the show-sequence-diagram command reports an error instead of throwing when no file is open', async () => {
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND)));
 	});
 
 	test('the analyze-workspace command reports an error instead of throwing when no folder is open', async () => {
 		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(ANALYZE_WORKSPACE_COMMAND)));
-	});
-
-	test('the calculate-impact command reports an error instead of throwing when no folder is open', async () => {
-		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
-		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(CALCULATE_IMPACT_COMMAND)));
 	});
 
 	test('the design-project command focuses the sidebar Design Project view instead of throwing', async () => {

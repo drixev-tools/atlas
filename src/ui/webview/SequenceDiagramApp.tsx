@@ -7,7 +7,7 @@
 // geometry; this component only turns that into React Flow nodes/edges and
 // wires the "open lifeline"/"open AI settings" affordances.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { Background, ReactFlow, type Edge } from '@xyflow/react';
+import { Background, MarkerType, ReactFlow, type Edge } from '@xyflow/react';
 import { computeSequenceDiagramLayout } from '../sequenceDiagramLayout';
 import { SequenceDiagramExportFormat, SequenceDiagramHostToWebviewMessage } from './sequenceDiagramProtocol';
 import { SequenceLifelineData, SequenceLifelineFlowNode, SequenceLifelineNode } from './SequenceLifelineNode';
@@ -111,22 +111,30 @@ export function SequenceDiagramApp(): ReactElement {
 	);
 
 	const labelByStepId = useMemo(() => new Map((state?.steps ?? []).map((step) => [step.id, step.label] as const)), [state]);
+	const kindByStepId = useMemo(() => new Map((state?.steps ?? []).map((step) => [step.id, step.kind] as const)), [state]);
 
 	const flowEdges: Edge[] = useMemo(
 		() =>
-			layout.steps.map((step) => ({
-				id: step.id,
-				source: step.sourceLifelineId,
-				target: step.targetLifelineId,
-				sourceHandle: step.sourceHandleId,
-				targetHandle: step.targetHandleId,
-				type: step.isSelfMessage ? 'default' : 'straight',
-				label: labelByStepId.get(step.id),
-				className: DIAGRAM_EDGE_VISUALS.calls.className,
-				labelBgStyle: { fill: 'var(--vscode-editorWidget-background)' },
-				labelStyle: { fontSize: 11 }
-			})),
-		[layout, labelByStepId]
+			layout.steps.map((step) => {
+				const isCallStep = (kindByStepId.get(step.id) ?? 'calls') === 'calls';
+				return {
+					id: step.id,
+					source: step.sourceLifelineId,
+					target: step.targetLifelineId,
+					sourceHandle: step.sourceHandleId,
+					targetHandle: step.targetHandleId,
+					type: step.isSelfMessage ? 'default' : 'straight',
+					label: labelByStepId.get(step.id),
+					className: DIAGRAM_EDGE_VISUALS.calls.className,
+					style: isCallStep ? undefined : { strokeDasharray: '5 4', opacity: 0.7 },
+					markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--vscode-charts-foreground, var(--vscode-foreground))' },
+					labelBgStyle: { fill: 'var(--vscode-editorWidget-background)', stroke: 'var(--vscode-panel-border)' },
+					labelBgPadding: [6, 3],
+					labelBgBorderRadius: 4,
+					labelStyle: { fontSize: 11, fill: 'var(--vscode-foreground)' }
+				};
+			}),
+		[layout, labelByStepId, kindByStepId]
 	);
 
 	if (!state) {

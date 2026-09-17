@@ -7,7 +7,7 @@
 // like ./layerNamingClient). Takes a narrow `ArchitectureIdentificationEntity`
 // list instead of importing `../core/diagramModel`'s `DiagramModel` directly,
 // keeping this design-layer module free of any dependency on the core layer,
-// like ./layerNamingClient and ./impactClient.
+// like ./layerNamingClient.
 import Anthropic from '@anthropic-ai/sdk';
 import { EdgeKind } from '../pipelines/model';
 import { DEFAULT_CLAUDE_MODEL } from './claudeClient';

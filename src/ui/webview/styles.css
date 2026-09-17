@@ -540,6 +540,7 @@ body,
 
 .ag-edge-calls .react-flow__edge-path {
 	stroke: var(--vscode-charts-foreground, var(--vscode-foreground));
+	stroke-width: 1.5px;
 }
 
 .ag-identified-architecture-canvas {

@@ -6,7 +6,7 @@
 // and write a short overall summary. Takes a narrow
 // `SequenceDiagramContextInput` instead of importing ../core/sequenceContext's
 // `SequenceContext` directly, keeping this design-layer module free of any
-// dependency on the core layer, like ./impactClient.
+// dependency on the core layer.
 import Anthropic from '@anthropic-ai/sdk';
 import { NodeKind } from '../pipelines/model';
 import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
@@ -21,6 +21,8 @@ export interface SequenceDiagramStepInput {
 	to: string;
 	/** The step's non-AI default label, e.g. "calls foo" — what Claude is expected to improve on, not replace with something unrelated. */
 	defaultAction: string;
+	/** What kind of relationship this step represents — a function call, a file importing another, or a file declaring the function the diagram continues from. Defaults to `'calls'` when absent. */
+	kind?: 'calls' | 'imports' | 'declares';
 }
 
 export interface SequenceDiagramContextInput {
@@ -42,8 +44,7 @@ export interface SequenceDiagramNarration {
  * What the Sequence Diagram view (../ui/sequenceDiagramView) needs from
  * Claude, narrowed to an interface — separate from the concrete
  * `AnthropicClaudeSequenceDiagramClient` — so tests can supply a fake
- * response instead of making a real network call, matching
- * `ClaudeImpactClient` (./impactClient).
+ * response instead of making a real network call.
  */
 export interface ClaudeSequenceDiagramClient {
 	narrateSequence(context: SequenceDiagramContextInput): Promise<SequenceDiagramNarration>;
@@ -77,11 +78,11 @@ export class AnthropicClaudeSequenceDiagramClient implements ClaudeSequenceDiagr
 	}
 }
 
-const SYSTEM_PROMPT = `You are helping a developer read a sequence diagram of a specific function or file's call chain in a codebase.
+const SYSTEM_PROMPT = `You are helping a developer read a sequence diagram of how a codebase reaches a specific function, and what that function does next.
 
-The participants, steps, and their order are already fixed, extracted directly from the codebase's real function calls — never add, remove, reorder, or rename them. You will be given each step's order index, its "from"/"to" participant names, and a generic default label (e.g. "calls foo").
+The participants, steps, and their order are already fixed, extracted directly from the codebase — never add, remove, reorder, or rename them. Most steps are real function calls, but a step marked "imports" is one file importing another (part of how the app reaches the target file, not a call), and a step marked "declares" is the target file declaring the function the call chain continues from — word those two kinds accordingly instead of describing them as calls. You will be given each step's order index, kind, "from"/"to" participant names, and a generic default label (e.g. "calls foo").
 
-Call the record_sequence_narration tool exactly once with: a one-to-two sentence overall summary of what this flow does, and for each step (referenced by its order index) a short 2-6 word label in plain language describing what that call actually does — nicer and more specific than the generic default, but never inventing behavior the default label doesn't already imply.`;
+Call the record_sequence_narration tool exactly once with: a one-to-two sentence overall summary of what this flow does, and for each step (referenced by its order index) a short 2-6 word label in plain language describing what that step actually does — nicer and more specific than the generic default, but never inventing behavior the default label doesn't already imply.`;
 
 function buildUserPrompt(context: SequenceDiagramContextInput): string {
 	const lines: string[] = [`Target ${context.target.kind}: ${context.target.name}`, ''];
@@ -89,7 +90,10 @@ function buildUserPrompt(context: SequenceDiagramContextInput): string {
 	if (context.steps.length === 0) {
 		lines.push('No steps — this target has no resolvable calls.');
 	} else {
-		lines.push('Steps:', ...context.steps.map((step) => `${step.order}. ${step.from} -> ${step.to} (default: "${step.defaultAction}")`));
+		lines.push(
+			'Steps:',
+			...context.steps.map((step) => `${step.order}. [${step.kind ?? 'calls'}] ${step.from} -> ${step.to} (default: "${step.defaultAction}")`)
+		);
 	}
 
 	return lines.join('\n');

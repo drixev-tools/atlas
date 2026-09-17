@@ -4,10 +4,10 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace } from '../../ui/analyzeWorkspace';
-import { CALCULATE_IMPACT_COMMAND } from '../../ui/impact';
 import { OPEN_ARCHITECTURE_COMMAND } from '../../ui/architecture';
 import { SHOW_ACTIVE_FILE_FLOW_COMMAND } from '../../ui/activeFileFlow';
 import { SHOW_IDENTIFIED_ARCHITECTURE_COMMAND } from '../../ui/identifiedArchitecture';
+import { SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../../ui/sequenceDiagram';
 import { StoredNode } from '../../core/store';
 import {
 	ProjectGraphTreeProvider,
@@ -43,7 +43,7 @@ suite('Sidebar Panel', () => {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		});
 
-		test('lists the Analyze/Explore/Impact shortcuts at the root, ahead of the file tree', async () => {
+		test('lists the Analyze/Explore shortcuts at the root, ahead of the file tree', async () => {
 			writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 			await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
@@ -62,8 +62,8 @@ suite('Sidebar Panel', () => {
 					[
 						ANALYZE_WORKSPACE_COMMAND,
 						OPEN_ARCHITECTURE_COMMAND,
-						CALCULATE_IMPACT_COMMAND,
 						SHOW_ACTIVE_FILE_FLOW_COMMAND,
+						SHOW_SEQUENCE_DIAGRAM_COMMAND,
 						SHOW_IDENTIFIED_ARCHITECTURE_COMMAND
 					]
 				);

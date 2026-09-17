@@ -12,7 +12,6 @@ export const USAGE_METRICS_STORAGE_KEY = 'agentGraph.usageMetrics';
 export type UsageMetricEvent =
 	| 'analyzeWorkspace'
 	| 'openArchitecture'
-	| 'calculateImpact'
 	| 'showSequenceDiagram'
 	| 'showActiveFileFlow'
 	| 'showIdentifiedArchitecture'
@@ -24,8 +23,7 @@ export type UsageMetrics = Partial<Record<UsageMetricEvent, number>>;
 /**
  * Narrowed to an interface — separate from the concrete
  * `MementoUsageMetricsStore` — so tests and callers like `ProjectGraphWatcher`
- * can supply an in-memory fake, matching `ApiKeyStore` (../design/apiKey) and
- * `GitStatusSource` (./gitStatus).
+ * can supply an in-memory fake, matching `ApiKeyStore` (../design/apiKey).
  */
 export interface UsageMetricsStore {
 	record(event: UsageMetricEvent): Promise<void>;

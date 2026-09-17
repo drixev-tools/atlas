@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as ts from 'typescript';
 import { CodeGraph, GraphEdge, GraphNode, NodeKind, createEmptyGraph } from '../model';
 import { ExtractedDeclarationRef, ExtractedFile, ExtractedRange, ExtractedSymbol } from './extractor';
-import { findNearestTsConfigDir, loadCompilerOptionsFromTsConfigDir } from './program';
+import { createCompilerOptionsResolver } from './program';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -95,41 +95,25 @@ function resolveDeclarationRefTarget(
  * module resolution algorithm) and collapsing everything else — packages,
  * unresolvable specifiers — into shared external-module nodes.
  */
-export function normalizeToGraph(
-	program: ts.Program,
-	files: ExtractedFile[],
-	rootDir: string,
-	options: NormalizeToGraphOptions = {}
-): CodeGraph {
+export function normalizeToGraph(files: ExtractedFile[], rootDir: string, options: NormalizeToGraphOptions = {}): CodeGraph {
 	const graph = createEmptyGraph();
-	const defaultCompilerOptions = program.getCompilerOptions();
 	const batchFileIds = new Set(files.map((f) => fileNodeId(f.filePath)));
 	const knownFileIds = new Set([...batchFileIds, ...(options.knownFilePaths ?? []).map(fileNodeId)]);
 	const externalNodeIds = new Set<string>();
 
 	/**
 	 * Per-file compiler options, from that file's nearest `tsconfig.json`
-	 * (found within `rootDir`) rather than `program`'s own — a single
-	 * `ts.Program` here spans every file being extracted, but a monorepo can
-	 * have a different `tsconfig.json` (different `paths` aliases) per
-	 * package, so module resolution needs to use the config that actually
-	 * applies to the importing file, not one global config for everything.
-	 * Cached by config directory since many files typically share one.
+	 * (found within `rootDir`) — a monorepo can have a different
+	 * `tsconfig.json` (different `paths` aliases) per package, so module
+	 * resolution needs to use the config that actually applies to the
+	 * importing file, not one global config for everything. Shared with
+	 * `./program`'s own Program construction
+	 * (`createProgramForFilesWithPathMapping`) so the type checker behind
+	 * `calls`/`extends`/`instantiates` resolution agrees with this
+	 * file-to-file `imports` resolution about which aliases apply to a given
+	 * file.
 	 */
-	const compilerOptionsByConfigDir = new Map<string, ts.CompilerOptions>();
-	const compilerOptionsForFile = (filePath: string): ts.CompilerOptions => {
-		const configDir = findNearestTsConfigDir(path.dirname(filePath), rootDir);
-		if (!configDir) {
-			return defaultCompilerOptions;
-		}
-		const cached = compilerOptionsByConfigDir.get(configDir);
-		if (cached) {
-			return cached;
-		}
-		const loaded = loadCompilerOptionsFromTsConfigDir(configDir);
-		compilerOptionsByConfigDir.set(configDir, loaded);
-		return loaded;
-	};
+	const compilerOptionsForFile = createCompilerOptionsResolver(rootDir);
 
 	const addNode = (node: GraphNode): void => {
 		graph.nodes.push(node);

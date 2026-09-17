@@ -11,8 +11,7 @@ export const ANTHROPIC_API_KEY_SECRET_KEY = 'agentGraph.anthropicApiKey';
  * What `ClaudeSettingsStore` (./settings) needs from secret storage, narrowed
  * to an interface — separate from the concrete `SecretStorageApiKeyStore` —
  * so tests can supply an in-memory fake instead of a real VS Code extension
- * host, matching `GitStatusSource` (../core/gitStatus) and `ClaudeDesignClient`
- * (./claudeClient).
+ * host, matching `ClaudeDesignClient` (./claudeClient).
  */
 export interface ApiKeyStore {
 	get(): Promise<string | undefined>;

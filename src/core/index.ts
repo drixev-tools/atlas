@@ -7,8 +7,6 @@ export * from './watcher';
 export * from './impact';
 export * from './sequenceContext';
 export * from './testLinks';
-export * from './gitExtensionApi';
-export * from './gitStatus';
 export * from './comparison';
 export * from './metrics';
 export * from './diagramModel';

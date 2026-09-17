@@ -23,12 +23,12 @@ function sampleState(overrides: Partial<SequenceDiagramViewState> = {}): Sequenc
 			{ id: 'fn:add', name: 'add', kind: 'function', filePath: '/repo/math.ts', lifelineId: 'file:/repo/math.ts' },
 			{ id: 'fn:run', name: 'run', kind: 'function', filePath: '/repo/app.ts', lifelineId: 'file:/repo/app.ts' }
 		],
-		steps: [{ id: 'calls:run:add', order: 0, fromParticipantId: 'fn:run', toParticipantId: 'fn:add', label: 'calls add' }],
+		steps: [{ id: 'calls:run:add', order: 0, fromParticipantId: 'fn:run', toParticipantId: 'fn:add', label: 'calls add', kind: 'calls' }],
 		...overrides
 	};
 }
 
-/** Same async-tab-lag workaround as impactView.test.ts's `findTabByLabel`. */
+/** Same async-tab-lag workaround as graphPanel.test.ts's `findTabByLabel`. */
 async function findTabByLabel(label: string, timeoutMs = 2000): Promise<vscode.Tab | undefined> {
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {

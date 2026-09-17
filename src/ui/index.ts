@@ -8,8 +8,6 @@ export * from './diagramLayout';
 export * from './diagramExport';
 export * from './architectureLayers';
 export * from './analyzeWorkspace';
-export * from './impact';
-export * from './impactView';
 export * from './sequenceDiagram';
 export * from './sequenceDiagramLayout';
 export * from './sequenceDiagramView';

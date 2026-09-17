@@ -2,7 +2,7 @@ import { CodeGraph } from '../model';
 import { extractProgram } from './extractor';
 import { findSourceFiles } from './files';
 import { normalizeToGraph } from './normalize';
-import { createProgramForFiles, getSourceFilesOf } from './program';
+import { createProgramForFilesWithPathMapping, getSourceFilesOf } from './program';
 
 export * from './extractor';
 export * from './files';
@@ -34,9 +34,9 @@ export function runTsPipeline(rootDir: string, options: RunTsPipelineOptions = {
 		return { nodes: [], edges: [] };
 	}
 
-	const program = createProgramForFiles(fileNames);
+	const program = createProgramForFilesWithPathMapping(fileNames, rootDir);
 	const sourceFiles = getSourceFilesOf(program, fileNames);
 	const extractedFiles = extractProgram(program, sourceFiles);
 
-	return normalizeToGraph(program, extractedFiles, rootDir, { knownFilePaths: options.knownFiles });
+	return normalizeToGraph(extractedFiles, rootDir, { knownFilePaths: options.knownFiles });
 }

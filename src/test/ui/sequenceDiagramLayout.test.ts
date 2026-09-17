@@ -25,17 +25,17 @@ suite('computeSequenceDiagramLayout', () => {
 
 		const sourceLifeline = layout.lifelinesById.get('a');
 		const targetLifeline = layout.lifelinesById.get('b');
-		assert.deepStrictEqual(sourceLifeline?.sourceHandles, [{ id: sourceHandleId('step-0'), top: 90, side: 'right' }]);
-		assert.deepStrictEqual(targetLifeline?.targetHandles, [{ id: targetHandleId('step-0'), top: 90, side: 'left' }]);
+		assert.deepStrictEqual(sourceLifeline?.sourceHandles, [{ id: sourceHandleId('step-0'), top: 90, side: 'center' }]);
+		assert.deepStrictEqual(targetLifeline?.targetHandles, [{ id: targetHandleId('step-0'), top: 90, side: 'center' }]);
 	});
 
-	test('a step whose target lifeline sits to the left of its source uses the opposite sides, drawing a clean backward line', () => {
+	test('a step whose target lifeline sits to the left of its source still centers both handles on their own track', () => {
 		const layout = computeSequenceDiagramLayout(['a', 'b'], [{ id: 'step-0', order: 0, sourceLifelineId: 'b', targetLifelineId: 'a' }]);
 
 		const sourceLifeline = layout.lifelinesById.get('b');
 		const targetLifeline = layout.lifelinesById.get('a');
-		assert.strictEqual(sourceLifeline?.sourceHandles[0].side, 'left');
-		assert.strictEqual(targetLifeline?.targetHandles[0].side, 'right');
+		assert.strictEqual(sourceLifeline?.sourceHandles[0].side, 'center');
+		assert.strictEqual(targetLifeline?.targetHandles[0].side, 'center');
 	});
 
 	test('a later order places its row further down', () => {
@@ -60,8 +60,8 @@ suite('computeSequenceDiagramLayout', () => {
 		const sourceTop = lifeline?.sourceHandles[0].top;
 		const targetTop = lifeline?.targetHandles[0].top;
 		assert.ok(sourceTop !== undefined && targetTop !== undefined && targetTop > sourceTop);
-		assert.strictEqual(lifeline?.sourceHandles[0].side, 'right');
-		assert.strictEqual(lifeline?.targetHandles[0].side, 'right');
+		assert.strictEqual(lifeline?.sourceHandles[0].side, 'loop');
+		assert.strictEqual(lifeline?.targetHandles[0].side, 'loop');
 	});
 
 	test('drops a step referencing a lifeline id that was not provided', () => {

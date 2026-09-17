@@ -9,11 +9,12 @@
 // `DiagramModel` the host sends as `architecture` (see ../architectureLayers)
 // — every top-level folder group and every root-level loose file, all
 // visible and connected by default, the same way a file explorer's top level
-// is. A folder's own member files stay hidden until the user expands it
-// (clicking a card/box that owns files, per its `metrics`), fetched on demand
-// via `architecture:requestFiles` and merged onto the SAME canvas as that
-// folder's children (`mergedArchitectureModel` below) rather than navigating
-// to a separate screen — collapsing it again just removes them. Clicking a
+// is. Every folder's own member files are fetched and expanded by default
+// too (`architecture:requestFiles`, one request per group on `graph:update`)
+// and merged onto the SAME canvas as that folder's children
+// (`mergedArchitectureModel` below) rather than navigating to a separate
+// screen — clicking a card/box that owns files (per its `metrics`) still
+// toggles it collapsed/expanded from there. Clicking a
 // file card (root-level, or revealed by expanding its folder) asks the host
 // (`architecture:openFileFlow`) to open that file's import flow in the Active
 // File Flow view instead (a separate panel, see ../activeFileFlow and
@@ -119,7 +120,11 @@ export function App(): ReactElement {
 				setFlatFiles(undefined);
 				setViewMode('layers');
 				setSelectedCardId(undefined);
-				setExpandedArchNodeIds(new Set());
+				const expandableGroupIds = message.architecture.model.nodes.filter((node) => node.kind === 'group' && node.metrics).map((node) => node.id);
+				setExpandedArchNodeIds(new Set(expandableGroupIds));
+				for (const groupId of expandableGroupIds) {
+					postToHost({ type: 'architecture:requestFiles', groupId });
+				}
 				setFocusNodeId(message.focusNodeId);
 				setExpandedNodeIds(new Set());
 				setSelectedNodeId(undefined);
@@ -463,7 +468,7 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 					className: DIAGRAM_EDGE_VISUALS[dominant].className,
 					label: String(totalCount),
 					labelBgStyle: { fill: 'var(--vscode-editorWidget-background)' },
-					labelStyle: { fontSize: 10 },
+					labelStyle: { fontSize: 10, fill: 'var(--vscode-editorWidget-foreground)' },
 					markerEnd: { type: MarkerType.ArrowClosed }
 				};
 			}),

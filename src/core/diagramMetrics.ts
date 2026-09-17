@@ -11,7 +11,7 @@ import { ProjectGraphStore, StoredGraph } from './store';
 import { findRelatedTestFiles } from './testLinks';
 
 export interface ComputeDiagramMetricsOptions {
-	/** Absolute paths of files with uncommitted git changes (e.g. from `GitStatusSource.getChangedFiles`), for `DiagramMetrics.changedFileCount`. Treated as empty — every node reporting a clean working tree — when omitted. */
+	/** Absolute paths of files with uncommitted git changes, for `DiagramMetrics.changedFileCount`. Treated as empty — every node reporting a clean working tree — when omitted. */
 	changedFiles?: readonly string[];
 }
 

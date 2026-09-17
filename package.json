@@ -31,12 +31,8 @@
         "title": "Project Graph: Open Architecture"
       },
       {
-        "command": "agentGraph.calculateImpact",
-        "title": "Project Graph: Calculate Impact"
-      },
-      {
         "command": "agentGraph.showSequenceDiagram",
-        "title": "Show Sequence Diagram"
+        "title": "Project Graph: Show Sequence Diagram"
       },
       {
         "command": "agentGraph.showActiveFileFlow",
@@ -87,24 +83,11 @@
       ]
     },
     "menus": {
-      "commandPalette": [
-        {
-          "command": "agentGraph.showSequenceDiagram",
-          "when": "false"
-        }
-      ],
       "view/title": [
         {
           "command": "agentGraph.sidebar.refresh",
           "when": "view == agentGraph.explorer",
           "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "agentGraph.showSequenceDiagram",
-          "when": "view == agentGraph.explorer && (viewItem == agentGraph.node.function || viewItem == agentGraph.node.file)",
-          "group": "1_agentGraph"
         }
       ]
     },
@@ -124,7 +107,7 @@
             "Claude Haiku 4.5 (fastest)"
           ],
           "default": "claude-sonnet-5",
-          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, Impact, Sequence Diagram, and Identified Architecture views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
+          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, Sequence Diagram, and Identified Architecture views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
         }
       }
     }
