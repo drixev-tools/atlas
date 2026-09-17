@@ -35,10 +35,18 @@ function MetricChips({ metrics }: { metrics: DiagramMetrics }): ReactElement {
 			{metrics.changedFileCount > 0 && <span className="ag-chip">{metrics.changedFileCount} changed</span>}
 			{metrics.externalDependencies.slice(0, 3).map((dependency) => (
 				<span key={dependency.name} className="ag-chip ag-chip-external" title={`${dependency.name} (${dependency.count})`}>
-					{dependency.name}
+					<span aria-hidden="true">↗</span> {dependency.name}
 				</span>
 			))}
 		</div>
+	);
+}
+
+function EntryBadge(): ReactElement {
+	return (
+		<span className="ag-card-entry-badge">
+			<span aria-hidden="true">★</span> Entry
+		</span>
 	);
 }
 
@@ -54,7 +62,7 @@ export function DiagramCardNode(props: NodeProps<DiagramCardFlowNode>): ReactEle
 					{visual.icon}
 				</span>
 				<span className="ag-card-title">{data.label}</span>
-				{data.hasEntryPoint && <span className="ag-card-entry-badge">Entry</span>}
+				{data.hasEntryPoint && <EntryBadge />}
 			</div>
 			{data.purpose && <div className="ag-card-purpose">{data.purpose}</div>}
 			{data.metrics && <MetricChips metrics={data.metrics} />}
@@ -88,7 +96,7 @@ export function DiagramGroupNode(props: NodeProps<DiagramGroupFlowNode>): ReactE
 			<Handle type="target" position={Position.Left} />
 			<div className="ag-group-node-header">
 				<span>{data.label}</span>
-				{data.hasEntryPoint && <span className="ag-card-entry-badge">Entry</span>}
+				{data.hasEntryPoint && <EntryBadge />}
 			</div>
 			{data.hasHiddenChildren && (
 				<div className="ag-card-hint" aria-hidden="true">

@@ -25,7 +25,7 @@ export const DIAGRAM_KIND_VISUALS: Record<DiagramCardKind, DiagramKindVisual> = 
 	file: { icon: 'F', label: 'File', accentClassName: 'ag-accent-file' },
 	class: { icon: 'C', label: 'Class', accentClassName: 'ag-accent-class' },
 	method: { icon: 'M', label: 'Method', accentClassName: 'ag-accent-method' },
-	function: { icon: 'Fn', label: 'Function', accentClassName: 'ag-accent-function' }
+	function: { icon: 'ƒ', label: 'Function', accentClassName: 'ag-accent-function' }
 };
 
 export interface DiagramEdgeVisual {
