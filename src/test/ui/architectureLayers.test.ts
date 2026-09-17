@@ -51,6 +51,20 @@ suite('buildArchitectureLayerData', () => {
 		assert.ok(model.nodes.find((n) => n.id === 'group:ui')?.metrics);
 		assert.deepStrictEqual(entryPointGroupIds, ['group:ui']);
 	});
+
+	test('a root-level file gets its own metrics and counts as an entry point node, but is excluded from groups', () => {
+		const rootFile = fileNode('extension.ts');
+		const activate: GraphNode = { id: 'func:activate', kind: 'function', name: 'activate', filePath: rootFile.filePath, exported: true };
+		store.upsertNodes([rootFile, activate]);
+		store.upsertEdge(edge('contains:1', 'contains', rootFile.id, activate.id));
+
+		const graph = store.getGraph();
+		const { model, groups, entryPointGroupIds } = buildArchitectureLayerData(store, graph, ROOT);
+
+		assert.deepStrictEqual(groups, []);
+		assert.ok(model.nodes.find((n) => n.id === rootFile.id)?.metrics);
+		assert.deepStrictEqual(entryPointGroupIds, [rootFile.id]);
+	});
 });
 
 suite('buildArchitectureFileLevelData', () => {

@@ -147,17 +147,35 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
  * "Project Graph: Open Architecture" — opens the React Flow graph panel
  * (`../ui/graphPanel`), which now opens on its layered-architecture view
  * (`../ui/architectureLayers`) rather than the file-focused symbol view;
- * drilling down eventually reaches that same file-focused view unchanged.
- * Reveals and refreshes the existing panel if one is already open, otherwise
- * creates it. `claudeSettings` lets the architecture view upgrade its
- * folder-name group labels to Claude-generated ones in the background.
+ * drilling into a file there opens its call relationships in the Entry Point
+ * Flow view (`../ui/entryPointFlowPanel`) instead of the old file-focused
+ * symbol view. Reveals and refreshes the existing panel if one is already
+ * open, otherwise creates it. `claudeSettings` lets the architecture view
+ * upgrade its folder-name group labels to Claude-generated ones in the
+ * background.
  */
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'openArchitecture');
 
 	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
 	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
-	GraphPanel.createOrShow(context.extensionUri, store, claudeSettings);
+	GraphPanel.createOrShow(context.extensionUri, store, claudeSettings, (nodeId) => {
+		void openEntryPointFlowForNode(context, nodeId);
+	});
+}
+
+/**
+ * Opens ../ui/entryPointFlowPanel for a specific node id rather than the
+ * detected-entry-point picker `runShowEntryPointFlowCommand` shows — how a
+ * file card's click in the architecture view (`GraphPanel`'s
+ * `architecture:openFileFlow`) reaches this panel. Opens its own
+ * `ProjectGraphStore`, like that command does, since `EntryPointFlowPanel`
+ * closes whatever store it's given on dispose and must not share the
+ * architecture view's.
+ */
+async function openEntryPointFlowForNode(context: vscode.ExtensionContext, nodeId: string): Promise<void> {
+	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	EntryPointFlowPanel.createOrShow(context.extensionUri, store, nodeId);
 }
 
 /**

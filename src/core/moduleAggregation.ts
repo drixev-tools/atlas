@@ -14,9 +14,6 @@ export interface FolderAggregationOptions {
 	depth: number;
 }
 
-const ROOT_GROUP_ID = 'group:.';
-const ROOT_GROUP_LABEL = '(root)';
-
 function pathSegments(value: string): string[] {
 	return value.split(/[\\/]/).filter(Boolean);
 }
@@ -40,13 +37,8 @@ interface GroupChainLink {
 	label: string;
 }
 
-/** The chain of nested group ids/labels `filePath` belongs to, root-most first, capped at `depth` links; a file with no folder (living directly in `rootDir`) gets the single synthetic `ROOT_GROUP_ID` link. */
-function groupChainForFile(filePath: string, rootDir: string | undefined, depth: number): GroupChainLink[] {
-	const segments = folderSegmentsForFile(filePath, rootDir).slice(0, depth);
-	if (segments.length === 0) {
-		return [{ id: ROOT_GROUP_ID, label: ROOT_GROUP_LABEL }];
-	}
-
+/** The chain of nested group ids/labels `segments` (a file's folder path, already capped at `depth`) belongs to, root-most first. Always non-empty — a file with no folder never reaches this; see `aggregateDiagramModelByFolder`'s own root-level handling. */
+function groupChainForSegments(segments: readonly string[]): GroupChainLink[] {
 	const chain: GroupChainLink[] = [];
 	let accumulatedPath = '';
 	for (const segment of segments) {
@@ -67,21 +59,38 @@ function groupChainForFile(filePath: string, rootDir: string | undefined, depth:
  * dependency is a metric here, not a graph edge. Only the leaf group at
  * `depth` gets an entry in `filePathsByNodeId`; an intermediate folder level
  * is nesting only, with no metrics of its own.
+ *
+ * A file with no folder at all (living directly in `rootDir`) never gets a
+ * synthetic wrapper group — it becomes its own top-level `file` `DiagramNode`
+ * instead, a sibling of the depth-1 folder groups. The architecture view
+ * (../ui/architectureLayers) renders these, like every depth-1 node, as
+ * visible by default; a folder's own member files only ever surface once the
+ * user expands that folder (../ui/diagramFileExpansion's containment-based
+ * hiding, not something this pure model-building step needs to know about).
  */
 export function aggregateDiagramModelByFolder(graph: StoredGraph, options: FolderAggregationOptions): DiagramModelResult {
 	const depth = Math.max(1, Math.floor(options.depth));
 	const rootDir = options.rootDir;
 
 	const groupById = new Map<string, DiagramNode>();
-	const filePathsByGroupId = new Map<string, string[]>();
-	const groupIdByFileId = new Map<string, string>();
+	const rootFileById = new Map<string, DiagramNode>();
+	const filePathsByNodeId = new Map<string, string[]>();
+	const resolvedIdByFileId = new Map<string, string>();
 
 	for (const node of graph.nodes) {
 		if (node.kind !== 'file' || !node.filePath) {
 			continue;
 		}
 
-		const chain = groupChainForFile(node.filePath, rootDir, depth);
+		const segments = folderSegmentsForFile(node.filePath, rootDir);
+		if (segments.length === 0) {
+			rootFileById.set(node.id, { id: node.id, kind: 'file', label: node.name });
+			resolvedIdByFileId.set(node.id, node.id);
+			filePathsByNodeId.set(node.id, [node.filePath]);
+			continue;
+		}
+
+		const chain = groupChainForSegments(segments.slice(0, depth));
 		chain.forEach((link, index) => {
 			if (!groupById.has(link.id)) {
 				groupById.set(link.id, { id: link.id, kind: 'group', label: link.label, parentId: index > 0 ? chain[index - 1].id : undefined });
@@ -89,12 +98,12 @@ export function aggregateDiagramModelByFolder(graph: StoredGraph, options: Folde
 		});
 
 		const leafGroupId = chain[chain.length - 1].id;
-		groupIdByFileId.set(node.id, leafGroupId);
-		const filePaths = filePathsByGroupId.get(leafGroupId);
+		resolvedIdByFileId.set(node.id, leafGroupId);
+		const filePaths = filePathsByNodeId.get(leafGroupId);
 		if (filePaths) {
 			filePaths.push(node.filePath);
 		} else {
-			filePathsByGroupId.set(leafGroupId, [node.filePath]);
+			filePathsByNodeId.set(leafGroupId, [node.filePath]);
 		}
 	}
 
@@ -105,25 +114,25 @@ export function aggregateDiagramModelByFolder(graph: StoredGraph, options: Folde
 		}
 	}
 
-	const groupIdByNodeId = new Map<string, string>();
+	const resolvedIdByNodeId = new Map<string, string>();
 	for (const node of graph.nodes) {
 		if (node.kind === 'externalModule') {
 			continue;
 		}
 		const fileId = node.kind === 'file' ? node.id : node.filePath ? fileIdByResolvedPath.get(path.resolve(node.filePath)) : undefined;
-		const groupId = fileId ? groupIdByFileId.get(fileId) : undefined;
-		if (groupId) {
-			groupIdByNodeId.set(node.id, groupId);
+		const resolvedId = fileId ? resolvedIdByFileId.get(fileId) : undefined;
+		if (resolvedId) {
+			resolvedIdByNodeId.set(node.id, resolvedId);
 		}
 	}
 
 	const edges = aggregateEdgesByEndpoint(
 		graph.edges.filter((edge) => edge.kind !== 'contains'),
-		(nodeId) => groupIdByNodeId.get(nodeId)
+		(nodeId) => resolvedIdByNodeId.get(nodeId)
 	);
 
-	const model: DiagramModel = { nodes: [...groupById.values()], edges };
-	return { model, filePathsByNodeId: filePathsByGroupId };
+	const model: DiagramModel = { nodes: [...groupById.values(), ...rootFileById.values()], edges };
+	return { model, filePathsByNodeId };
 }
 
 /**

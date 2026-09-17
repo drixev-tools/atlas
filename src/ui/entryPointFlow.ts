@@ -7,7 +7,7 @@
 // directly.
 import { detectEntryPoints, EntryPoint } from '../core/entryPoints';
 import { buildEntryPointFlow, EntryPointFlow } from '../core/entryPointFlow';
-import { ProjectGraphStore, StoredGraph } from '../core/store';
+import { ProjectGraphStore, StoredGraph, StoredNode } from '../core/store';
 
 export const SHOW_ENTRY_POINT_FLOW_COMMAND = 'agentGraph.showEntryPointFlow';
 
@@ -29,4 +29,46 @@ export function buildEntryPointFlowViewData(store: ProjectGraphStore, graph: Sto
 		return undefined;
 	}
 	return { entryPoints: detectEntryPoints(store), selectedEntryPointId, flow };
+}
+
+function isFunctionLike(node: StoredNode): boolean {
+	return node.kind === 'function' || node.kind === 'method';
+}
+
+/**
+ * Picks the node a file's card should open the Entry Point Flow view on
+ * (../graphPanel's `architecture:openFileFlow`, replacing the old
+ * file-focused symbol drill-down): `fileId`'s own detected entry point if it
+ * has one, otherwise whichever function/method declared in that file makes
+ * the most outgoing `calls` (the closest thing to "what this file does" when
+ * no framework-recognized entry point applies), breaking ties by declaration
+ * order. `undefined` when `fileId` isn't a file node or declares no
+ * functions/methods at all — there's nothing to trace.
+ */
+export function resolveFileFlowEntryPointId(store: ProjectGraphStore, graph: StoredGraph, fileId: string): string | undefined {
+	const file = graph.nodes.find((node) => node.id === fileId);
+	if (!file || file.kind !== 'file' || !file.filePath) {
+		return undefined;
+	}
+
+	const functionsInFile = graph.nodes.filter((node) => node.filePath === file.filePath && isFunctionLike(node));
+	if (functionsInFile.length === 0) {
+		return undefined;
+	}
+
+	const entryPointInFile = detectEntryPoints(store).find((entryPoint) => entryPoint.filePath === file.filePath);
+	if (entryPointInFile) {
+		return entryPointInFile.nodeId;
+	}
+
+	const outgoingCallCountById = new Map<string, number>();
+	for (const edge of graph.edges) {
+		if (edge.kind === 'calls') {
+			outgoingCallCountById.set(edge.source, (outgoingCallCountById.get(edge.source) ?? 0) + 1);
+		}
+	}
+
+	return functionsInFile.reduce((best, candidate) =>
+		(outgoingCallCountById.get(candidate.id) ?? 0) > (outgoingCallCountById.get(best.id) ?? 0) ? candidate : best
+	).id;
 }

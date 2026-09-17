@@ -52,12 +52,29 @@ suite('aggregateDiagramModelByFolder', () => {
 		assert.deepStrictEqual(filePathsByNodeId.get('group:src/core'), [path.join(ROOT, 'src', 'core', 'store.ts')]);
 	});
 
-	test('files with no folder land in a single synthetic root group', () => {
+	test('a file with no folder becomes its own top-level file node instead of a synthetic root group', () => {
 		const graph: StoredGraph = { nodes: [fileNode('extension.ts')], edges: [] };
 		const { model, filePathsByNodeId } = aggregateDiagramModelByFolder(graph, { rootDir: ROOT, depth: 2 });
 
-		assert.deepStrictEqual(model.nodes.map((n) => n.id), ['group:.']);
-		assert.deepStrictEqual(filePathsByNodeId.get('group:.'), [path.join(ROOT, 'extension.ts')]);
+		const fileId = `file:extension.ts`;
+		assert.deepStrictEqual(model.nodes, [{ id: fileId, kind: 'file', label: 'extension.ts' }]);
+		assert.deepStrictEqual(filePathsByNodeId.get(fileId), [path.join(ROOT, 'extension.ts')]);
+	});
+
+	test('a root-level file and a folder file resolve edges to themselves/their group respectively', () => {
+		const rootFile = fileNode('server.ts');
+		const uiFile = fileNode(path.join('ui', 'a.ts'));
+
+		const graph: StoredGraph = {
+			nodes: [rootFile, uiFile],
+			edges: [edge('imports:1', 'imports', rootFile.id, uiFile.id)]
+		};
+
+		const { model } = aggregateDiagramModelByFolder(graph, { rootDir: ROOT, depth: 2 });
+
+		assert.strictEqual(model.edges.length, 1);
+		assert.strictEqual(model.edges[0].source, rootFile.id);
+		assert.strictEqual(model.edges[0].target, 'group:ui');
 	});
 
 	test('aggregates a symbol-to-symbol edge into a single group-pair DiagramEdge, dropping self edges', () => {

@@ -19,6 +19,9 @@ export interface DiagramCardData extends Record<string, unknown> {
 	metrics?: DiagramMetrics;
 	hasEntryPoint: boolean;
 	isSelected: boolean;
+	/** Whether this card imports a standalone file (../diagramFileExpansion) not currently on canvas — the files view's cue that clicking this card expands it instead of opening the Entry Point Flow view. */
+	hasHiddenChildren?: boolean;
+	isExpanded?: boolean;
 }
 
 export type DiagramCardFlowNode = Node<DiagramCardData, 'diagramCard'>;
@@ -55,6 +58,11 @@ export function DiagramCardNode(props: NodeProps<DiagramCardFlowNode>): ReactEle
 			</div>
 			{data.purpose && <div className="ag-card-purpose">{data.purpose}</div>}
 			{data.metrics && <MetricChips metrics={data.metrics} />}
+			{data.hasHiddenChildren && (
+				<div className="ag-card-hint" aria-hidden="true">
+					{data.isExpanded ? '−' : '+'}
+				</div>
+			)}
 			<Handle type="source" position={Position.Right} />
 		</div>
 	);
@@ -65,6 +73,9 @@ export interface DiagramGroupData extends Record<string, unknown> {
 	purpose?: string;
 	hasEntryPoint: boolean;
 	tintIndex: number;
+	/** Whether this folder owns member files (../diagramFileExpansion's containment-based hiding) not yet merged onto the canvas — the layers view's cue that clicking this box expands it. */
+	hasHiddenChildren?: boolean;
+	isExpanded?: boolean;
 }
 
 export type DiagramGroupFlowNode = Node<DiagramGroupData, 'diagramGroup'>;
@@ -79,6 +90,11 @@ export function DiagramGroupNode(props: NodeProps<DiagramGroupFlowNode>): ReactE
 				<span>{data.label}</span>
 				{data.hasEntryPoint && <span className="ag-card-entry-badge">Entry</span>}
 			</div>
+			{data.hasHiddenChildren && (
+				<div className="ag-card-hint" aria-hidden="true">
+					{data.isExpanded ? '−' : '+'}
+				</div>
+			)}
 			<Handle type="source" position={Position.Right} />
 		</div>
 	);

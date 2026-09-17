@@ -20,7 +20,7 @@ export interface ArchitectureLayerPayload {
 	entryPointGroupIds: string[];
 }
 
-/** One group's "files" drill-down level, computed on demand (`architecture:requestFiles` below) rather than upfront for every group. */
+/** One folder group's own member files, computed on demand (`architecture:requestFiles` below) when the user expands that group, rather than upfront for every group — the webview merges these in as the group's children rather than navigating to a separate screen. */
 export interface ArchitectureFilesPayload {
 	groupId: string;
 	model: DiagramModel;
@@ -31,8 +31,7 @@ export type ExportFormat = 'svg' | 'png' | 'pdf';
 
 /** The webview's current level in the "Open Architecture" panel, sent along with `graph:exportRequest` so the host can build a Markdown export that matches whatever's actually on screen, without tracking that navigation state itself. */
 export type GraphExportView =
-	| { level: 'layers' }
-	| { level: 'files'; groupId: string }
+	| { level: 'layers'; /** Ids of the folder groups currently expanded (their member files merged onto the canvas) — the host reproduces the same merge for the Markdown export. */ expandedGroupIds: string[] }
 	| { level: 'symbols'; focusNodeId: string; expandedNodeIds: string[] };
 
 export type HostToWebviewMessage =
@@ -66,6 +65,11 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
 	| { type: 'graph:ready' }
 	| { type: 'architecture:requestFiles'; groupId: string }
+	| {
+			/** A file card in the layers view was clicked (either a root-level file or one revealed by expanding its folder) — opens the Entry Point Flow view (a separate panel) for that file's call relationships instead of drilling into the old per-file symbol level. */
+			type: 'architecture:openFileFlow';
+			fileId: string;
+	  }
 	| { type: 'graph:exportRequest'; view: GraphExportView }
 	| { type: 'graph:exportCaptured'; format: ExportFormat; payload: string; width: number; height: number }
 	| { type: 'graph:exportCaptureFailed' };

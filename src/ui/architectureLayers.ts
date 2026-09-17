@@ -34,6 +34,7 @@ export interface ArchitectureLayerData {
 	model: DiagramModel;
 	/** Every group with an entry in `filePathsByNodeId` — i.e. one with metrics and thus a real folder of files behind it, as opposed to a group that exists only to nest other groups. */
 	groups: ArchitectureLayerGroup[];
+	/** Ids of every `model` node — a folder group or a root-level file node alike — with a detected entry point among its files. */
 	entryPointGroupIds: string[];
 }
 
@@ -47,14 +48,15 @@ export function buildArchitectureLayerData(
 	const { model, filePathsByNodeId } = aggregateDiagramModelByFolder(graph, { rootDir, depth: ARCHITECTURE_LAYER_DEPTH });
 	const metricsByNodeId = computeDiagramMetrics(store, graph, model, filePathsByNodeId, { changedFiles });
 
+	/** Only real folder groups — a root-level file also gets a `filePathsByNodeId` entry (for its own metrics), but it's a leaf node to open in the Entry Point Flow view, not a group to expand. */
 	const groups: ArchitectureLayerGroup[] = model.nodes
-		.filter((node) => filePathsByNodeId.has(node.id))
+		.filter((node) => node.kind === 'group' && filePathsByNodeId.has(node.id))
 		.map((node) => ({ groupId: node.id, folderLabel: node.label, filePaths: [...(filePathsByNodeId.get(node.id) ?? [])] }));
 
 	const entryPointFilePaths = toEntryPointFilePathSet(detectEntryPoints(store));
-	const entryPointGroupIds = groups
-		.filter((group) => group.filePaths.some((filePath) => entryPointFilePaths.has(filePath)))
-		.map((group) => group.groupId);
+	const entryPointGroupIds = model.nodes
+		.filter((node) => (filePathsByNodeId.get(node.id) ?? []).some((filePath) => entryPointFilePaths.has(filePath)))
+		.map((node) => node.id);
 
 	return { model: attachDiagramMetrics(model, metricsByNodeId), groups, entryPointGroupIds };
 }
