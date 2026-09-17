@@ -8,6 +8,7 @@
 import { WebviewToHostMessage } from './protocol';
 import { EntryPointFlowWebviewToHostMessage } from './entryPointFlowProtocol';
 import { SequenceDiagramWebviewToHostMessage } from './sequenceDiagramProtocol';
+import { IdentifiedArchitectureWebviewToHostMessage } from './identifiedArchitectureProtocol';
 
 interface VsCodeApi {
 	postMessage(message: unknown): void;
@@ -19,6 +20,8 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 const vscodeApi = acquireVsCodeApi();
 
-export function postToHost(message: WebviewToHostMessage | EntryPointFlowWebviewToHostMessage | SequenceDiagramWebviewToHostMessage): void {
+export function postToHost(
+	message: WebviewToHostMessage | EntryPointFlowWebviewToHostMessage | SequenceDiagramWebviewToHostMessage | IdentifiedArchitectureWebviewToHostMessage
+): void {
 	vscodeApi.postMessage(message);
 }

@@ -154,6 +154,33 @@ suite('ProjectGraphStore: CRUD', () => {
 		assert.deepStrictEqual(store.getLayerSummary('group:ui'), { label: 'UI Layer', description: 'New.', membersHash: 'def' });
 	});
 
+	test('getIdentifiedArchitecture returns undefined until one is set, then round-trips it', () => {
+		assert.strictEqual(store.getIdentifiedArchitecture(), undefined);
+
+		store.setIdentifiedArchitecture({
+			patternName: 'Layered Architecture',
+			patternDescription: 'Controllers call services.',
+			roles: [{ role: 'Controller', description: 'Handles requests.' }],
+			assignments: [{ groupId: 'group:controllers', role: 'Controller' }],
+			entitiesHash: 'abc'
+		});
+
+		assert.deepStrictEqual(store.getIdentifiedArchitecture(), {
+			patternName: 'Layered Architecture',
+			patternDescription: 'Controllers call services.',
+			roles: [{ role: 'Controller', description: 'Handles requests.' }],
+			assignments: [{ groupId: 'group:controllers', role: 'Controller' }],
+			entitiesHash: 'abc'
+		});
+	});
+
+	test('setIdentifiedArchitecture updates the single cached row in place rather than duplicating', () => {
+		store.setIdentifiedArchitecture({ patternName: 'A', patternDescription: 'a', roles: [], assignments: [], entitiesHash: 'abc' });
+		store.setIdentifiedArchitecture({ patternName: 'B', patternDescription: 'b', roles: [], assignments: [], entitiesHash: 'def' });
+
+		assert.strictEqual(store.getIdentifiedArchitecture()?.patternName, 'B');
+	});
+
 	test('clearByStatus removes only the matching status, leaving the rest of the graph intact', () => {
 		store.upsertNode(makeFileNode('file:1', 'index.ts'));
 		store.upsertNode(makeFunctionNode('symbol:1', 'run', '/project/index.ts'), 'proposed_only');

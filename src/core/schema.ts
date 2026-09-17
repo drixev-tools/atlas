@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS layer_summaries (
 	description TEXT NOT NULL,
 	members_hash TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS identified_architecture (
+	id INTEGER PRIMARY KEY CHECK (id = 1),
+	pattern_name TEXT NOT NULL,
+	pattern_description TEXT NOT NULL,
+	roles_json TEXT NOT NULL,
+	assignments_json TEXT NOT NULL,
+	entities_hash TEXT NOT NULL
+);
 `;
 
 export function applySchema(db: Database): void {

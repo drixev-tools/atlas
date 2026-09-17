@@ -81,6 +81,36 @@ function rowToLayerSummary(row: ParamsObject): LayerSummary {
 	return { label: row.label as string, description: row.description as string, membersHash: row.members_hash as string };
 }
 
+export interface IdentifiedArchitectureRole {
+	role: string;
+	description: string;
+}
+
+export interface IdentifiedArchitectureAssignment {
+	groupId: string;
+	role: string;
+}
+
+/** Cached "Identified Architecture" result (`../ui/identifiedArchitecture`), one row for the whole workspace rather than one per group like `LayerSummary` — the role assignment is a single joint decision across every module, not something that can be refreshed piecemeal. */
+export interface IdentifiedArchitectureCache {
+	patternName: string;
+	patternDescription: string;
+	roles: IdentifiedArchitectureRole[];
+	assignments: IdentifiedArchitectureAssignment[];
+	/** Hash of every candidate module's id and file set when this was generated, so a caller can tell the cache is stale without recomputing it itself, like `LayerSummary.membersHash`. */
+	entitiesHash: string;
+}
+
+function rowToIdentifiedArchitectureCache(row: ParamsObject): IdentifiedArchitectureCache {
+	return {
+		patternName: row.pattern_name as string,
+		patternDescription: row.pattern_description as string,
+		roles: JSON.parse(row.roles_json as string) as IdentifiedArchitectureRole[],
+		assignments: JSON.parse(row.assignments_json as string) as IdentifiedArchitectureAssignment[],
+		entitiesHash: row.entities_hash as string
+	};
+}
+
 function rowToEdge(row: ParamsObject): StoredEdge {
 	const edge: StoredEdge = {
 		id: row.id as string,
@@ -335,6 +365,30 @@ export class ProjectGraphStore {
 				description = excluded.description,
 				members_hash = excluded.members_hash`,
 			[groupId, summary.label, summary.description, summary.membersHash]
+		);
+	}
+
+	/** The cached "Identified Architecture" result (`../ui/identifiedArchitecture`), or `undefined` when Claude has never produced one for this workspace yet. */
+	getIdentifiedArchitecture(): IdentifiedArchitectureCache | undefined {
+		const stmt = this.db.prepare('SELECT * FROM identified_architecture WHERE id = 1');
+		try {
+			return stmt.step() ? rowToIdentifiedArchitectureCache(stmt.getAsObject()) : undefined;
+		} finally {
+			stmt.free();
+		}
+	}
+
+	setIdentifiedArchitecture(cache: IdentifiedArchitectureCache): void {
+		this.db.run(
+			`INSERT INTO identified_architecture (id, pattern_name, pattern_description, roles_json, assignments_json, entities_hash)
+			 VALUES (1, ?, ?, ?, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET
+				pattern_name = excluded.pattern_name,
+				pattern_description = excluded.pattern_description,
+				roles_json = excluded.roles_json,
+				assignments_json = excluded.assignments_json,
+				entities_hash = excluded.entities_hash`,
+			[cache.patternName, cache.patternDescription, JSON.stringify(cache.roles), JSON.stringify(cache.assignments), cache.entitiesHash]
 		);
 	}
 

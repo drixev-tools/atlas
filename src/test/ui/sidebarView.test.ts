@@ -7,6 +7,7 @@ import { ANALYZE_WORKSPACE_COMMAND, analyzeWorkspace } from '../../ui/analyzeWor
 import { CALCULATE_IMPACT_COMMAND } from '../../ui/impact';
 import { OPEN_ARCHITECTURE_COMMAND } from '../../ui/architecture';
 import { SHOW_ENTRY_POINT_FLOW_COMMAND } from '../../ui/entryPointFlow';
+import { SHOW_IDENTIFIED_ARCHITECTURE_COMMAND } from '../../ui/identifiedArchitecture';
 import { StoredNode } from '../../core/store';
 import {
 	ProjectGraphTreeProvider,
@@ -51,17 +52,23 @@ suite('Sidebar Panel', () => {
 				await provider.refresh();
 				const children = provider.getChildren();
 
-				const shortcuts = children.slice(0, 4);
+				const shortcuts = children.slice(0, 5);
 				assert.deepStrictEqual(
 					shortcuts.map((element) => (element as { kind: string }).kind),
-					['shortcut', 'shortcut', 'shortcut', 'shortcut']
+					['shortcut', 'shortcut', 'shortcut', 'shortcut', 'shortcut']
 				);
 				assert.deepStrictEqual(
 					shortcuts.map((element) => provider.getTreeItem(element).command?.command),
-					[ANALYZE_WORKSPACE_COMMAND, OPEN_ARCHITECTURE_COMMAND, CALCULATE_IMPACT_COMMAND, SHOW_ENTRY_POINT_FLOW_COMMAND]
+					[
+						ANALYZE_WORKSPACE_COMMAND,
+						OPEN_ARCHITECTURE_COMMAND,
+						CALCULATE_IMPACT_COMMAND,
+						SHOW_ENTRY_POINT_FLOW_COMMAND,
+						SHOW_IDENTIFIED_ARCHITECTURE_COMMAND
+					]
 				);
 
-				const fileEntries = children.slice(4);
+				const fileEntries = children.slice(5);
 				assert.ok(fileEntries.length > 0, 'expected at least one file/folder entry after the shortcuts');
 			} finally {
 				provider.dispose();
@@ -75,7 +82,7 @@ suite('Sidebar Panel', () => {
 			const provider = new ProjectGraphTreeProvider({ rootDir: tmpDir, dbPath });
 			try {
 				await provider.refresh();
-				const [, , , , fileElement] = provider.getChildren();
+				const [, , , , , fileElement] = provider.getChildren();
 				const item = provider.getTreeItem(fileElement);
 
 				assert.strictEqual(item.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
@@ -94,7 +101,7 @@ suite('Sidebar Panel', () => {
 			const provider = new ProjectGraphTreeProvider({ rootDir: tmpDir, dbPath });
 			try {
 				await provider.refresh();
-				assert.deepStrictEqual(provider.getChildren().length, 4, 'only the 4 shortcuts before anything is analyzed');
+				assert.deepStrictEqual(provider.getChildren().length, 5, 'only the 5 shortcuts before anything is analyzed');
 
 				writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 				await analyzeWorkspace({ rootDir: tmpDir, dbPath });

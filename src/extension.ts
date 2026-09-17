@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
+	AnthropicClaudeArchitectureIdentificationClient,
 	AnthropicClaudeImpactClient,
 	AnthropicClaudeSequenceDiagramClient,
 	AuthenticationError,
@@ -15,6 +16,7 @@ import { ProjectGraphStore, StoredNode } from './core/store';
 import {
 	ANALYZE_WORKSPACE_COMMAND,
 	analyzeWorkspace,
+	applyArchitectureIdentification,
 	applySequenceDiagramNarration,
 	buildEmptyImpactViewState,
 	buildFallbackExplanation,
@@ -27,6 +29,8 @@ import {
 	EntryPointFlowPanel,
 	FOCUS_DESIGN_PROJECT_VIEW_COMMAND,
 	GraphPanel,
+	identifiedArchitectureEntities,
+	IdentifiedArchitecturePanel,
 	ImpactPanel,
 	loadSequenceContext,
 	OPEN_ARCHITECTURE_COMMAND,
@@ -34,10 +38,13 @@ import {
 	registerDesignProjectView,
 	registerSettingsView,
 	registerSidebar,
+	resolveCachedIdentifiedArchitecture,
 	SequenceDiagramPanel,
 	SHOW_ENTRY_POINT_FLOW_COMMAND,
+	SHOW_IDENTIFIED_ARCHITECTURE_COMMAND,
 	SHOW_SEQUENCE_DIAGRAM_COMMAND,
 	SidebarTreeNode,
+	toArchitectureIdentificationEntities,
 	toImpactSummaryInput,
 	toSequenceDiagramNarrationInput
 } from './ui';
@@ -48,6 +55,7 @@ export {
 	DESIGN_PROJECT_COMMAND,
 	OPEN_ARCHITECTURE_COMMAND,
 	SHOW_ENTRY_POINT_FLOW_COMMAND,
+	SHOW_IDENTIFIED_ARCHITECTURE_COMMAND,
 	SHOW_SEQUENCE_DIAGRAM_COMMAND
 };
 
@@ -77,6 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
 			runShowSequenceDiagramCommand(context, element)
 		),
 		vscode.commands.registerCommand(SHOW_ENTRY_POINT_FLOW_COMMAND, () => runShowEntryPointFlowCommand(context)),
+		vscode.commands.registerCommand(SHOW_IDENTIFIED_ARCHITECTURE_COMMAND, () => runShowIdentifiedArchitectureCommand(context)),
 		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => vscode.commands.executeCommand(FOCUS_DESIGN_PROJECT_VIEW_COMMAND))
 	);
 
@@ -362,6 +371,72 @@ async function runShowEntryPointFlowCommand(context: vscode.ExtensionContext): P
 	}
 
 	EntryPointFlowPanel.createOrShow(context.extensionUri, store, selected.nodeId);
+}
+
+/**
+ * "Show Identified Architecture" — asks Claude to name the project's real
+ * architecture pattern from an aggregated summary of the Project Graph
+ * (../ui/identifiedArchitecture), a second diagram entirely from "Open
+ * Architecture", always AI-generated (there's no non-AI fallback content, so
+ * a missing key or a failed call falls back to whatever's cached rather than
+ * to a lesser diagram). A cached result renders instantly; Claude is only
+ * called when nothing's cached yet or the module set has changed since.
+ */
+async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionContext): Promise<void> {
+	recordUsage(context, 'showIdentifiedArchitecture');
+
+	const rootDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const graph = store.getGraph();
+	const { groups, entityNodes, edges } = identifiedArchitectureEntities(store, graph, rootDir);
+	const entities = toArchitectureIdentificationEntities(graph, groups, edges);
+
+	if (entities.length === 0) {
+		store.close();
+		void vscode.window.showInformationMessage(
+			'Project Graph: nothing to identify an architecture from yet. Run "Project Graph: Analyze Workspace" first.'
+		);
+		return;
+	}
+
+	const cached = resolveCachedIdentifiedArchitecture(store, entityNodes, edges, entities);
+
+	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
+	const settings = await resolveClaudeSettings(claudeSettings);
+
+	if (cached.model && !cached.stale) {
+		store.close();
+		IdentifiedArchitecturePanel.createOrShow(context.extensionUri, cached.model, 'ready');
+		return;
+	}
+
+	if (!settings) {
+		store.close();
+		IdentifiedArchitecturePanel.createOrShow(context.extensionUri, cached.model, 'needsApiKey');
+		return;
+	}
+
+	const panel = IdentifiedArchitecturePanel.createOrShow(context.extensionUri, cached.model, 'loading');
+
+	try {
+		const identification = await new AnthropicClaudeArchitectureIdentificationClient(settings.apiKey, settings.model).identifyArchitecture(
+			entities
+		);
+		const result = applyArchitectureIdentification(store, entityNodes, edges, entities, identification);
+		panel.update(result, 'ready');
+	} catch (error) {
+		if (error instanceof AuthenticationError) {
+			await claudeSettings.clearApiKey();
+			panel.update(cached.model, cached.model ? 'ready' : 'needsApiKey');
+		} else {
+			void vscode.window.showWarningMessage(
+				`Project Graph: identifying the architecture failed — ${error instanceof Error ? error.message : String(error)}`
+			);
+			panel.update(cached.model, cached.model ? 'ready' : 'empty');
+		}
+	} finally {
+		store.close();
+	}
 }
 
 /**

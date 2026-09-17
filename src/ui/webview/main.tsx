@@ -10,6 +10,7 @@ import './styles.css';
 import { App } from './App';
 import { EntryPointFlowApp } from './EntryPointFlowApp';
 import { SequenceDiagramApp } from './SequenceDiagramApp';
+import { IdentifiedArchitectureApp } from './IdentifiedArchitectureApp';
 
 const container = document.getElementById('root');
 if (container) {
@@ -19,6 +20,8 @@ if (container) {
 		root.render(<EntryPointFlowApp />);
 	} else if (view === 'sequenceDiagram') {
 		root.render(<SequenceDiagramApp />);
+	} else if (view === 'identifiedArchitecture') {
+		root.render(<IdentifiedArchitectureApp />);
 	} else {
 		root.render(<App />);
 	}

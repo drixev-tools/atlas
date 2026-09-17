@@ -43,6 +43,10 @@
         "title": "Project Graph: Show Entry Point Flow"
       },
       {
+        "command": "agentGraph.showIdentifiedArchitecture",
+        "title": "Project Graph: Show Identified Architecture (AI)"
+      },
+      {
         "command": "agentGraph.designProject",
         "title": "Project Graph: Design Project"
       },
@@ -120,7 +124,7 @@
             "Claude Haiku 4.5 (fastest)"
           ],
           "default": "claude-sonnet-5",
-          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, Impact, and Sequence Diagram views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
+          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, Impact, Sequence Diagram, and Identified Architecture views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
         }
       }
     }

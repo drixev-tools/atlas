@@ -15,6 +15,8 @@ export * from './sequenceDiagramLayout';
 export * from './sequenceDiagramView';
 export * from './entryPointFlow';
 export * from './entryPointFlowPanel';
+export * from './identifiedArchitecture';
+export * from './identifiedArchitecturePanel';
 export * from './designProject';
 export * from './designProjectView';
 export * from './sidebarData';

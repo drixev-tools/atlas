@@ -15,6 +15,7 @@ export type UsageMetricEvent =
 	| 'calculateImpact'
 	| 'showSequenceDiagram'
 	| 'showEntryPointFlow'
+	| 'showIdentifiedArchitecture'
 	| 'designProject'
 	| 'incrementalUpdate';
 
