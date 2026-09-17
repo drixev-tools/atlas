@@ -112,11 +112,13 @@ function buildRecordSequenceNarrationTool(): Anthropic.Tool {
 							order: { type: 'integer', description: 'The order index of the step this label belongs to.' },
 							label: { type: 'string', description: 'Short 2-6 word label for what this step does.' }
 						},
-						required: ['order', 'label']
+						required: ['order', 'label'],
+						additionalProperties: false
 					}
 				}
 			},
-			required: ['summary', 'stepLabels']
+			required: ['summary', 'stepLabels'],
+			additionalProperties: false
 		}
 	};
 }

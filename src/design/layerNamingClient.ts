@@ -101,11 +101,13 @@ function buildNameLayersTool(): Anthropic.Tool {
 							label: { type: 'string', description: 'Short display name, e.g. "API Routes".' },
 							description: { type: 'string', description: "One-sentence description of this group's responsibility." }
 						},
-						required: ['groupId', 'label', 'description']
+						required: ['groupId', 'label', 'description'],
+						additionalProperties: false
 					}
 				}
 			},
-			required: ['layers']
+			required: ['layers'],
+			additionalProperties: false
 		}
 	};
 }

@@ -104,7 +104,8 @@ function buildProposeArchitectureTool(): Anthropic.Tool {
 							language: { type: 'string', description: 'Optional, e.g. "typescript", "python".' },
 							description: { type: 'string', description: 'Optional one-sentence responsibility of this node.' }
 						},
-						required: ['ref', 'kind', 'name']
+						required: ['ref', 'kind', 'name'],
+						additionalProperties: false
 					}
 				},
 				edges: {
@@ -117,11 +118,13 @@ function buildProposeArchitectureTool(): Anthropic.Tool {
 							targetRef: { type: 'string' },
 							description: { type: 'string' }
 						},
-						required: ['kind', 'sourceRef', 'targetRef']
+						required: ['kind', 'sourceRef', 'targetRef'],
+						additionalProperties: false
 					}
 				}
 			},
-			required: ['nodes', 'edges']
+			required: ['nodes', 'edges'],
+			additionalProperties: false
 		}
 	};
 }

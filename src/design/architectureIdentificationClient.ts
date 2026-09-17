@@ -140,7 +140,8 @@ function buildIdentifyArchitectureTool(): Anthropic.Tool {
 							role: { type: 'string', description: 'Short role name, e.g. "Controller".' },
 							description: { type: 'string', description: "One-sentence description of this role's responsibility." }
 						},
-						required: ['role', 'description']
+						required: ['role', 'description'],
+						additionalProperties: false
 					}
 				},
 				assignments: {
@@ -151,11 +152,13 @@ function buildIdentifyArchitectureTool(): Anthropic.Tool {
 							groupId: { type: 'string', description: 'The module id this assignment is for, copied from the input.' },
 							role: { type: 'string', description: 'The role (by its exact name from "roles") this module plays.' }
 						},
-						required: ['groupId', 'role']
+						required: ['groupId', 'role'],
+						additionalProperties: false
 					}
 				}
 			},
-			required: ['patternName', 'patternDescription', 'roles', 'assignments']
+			required: ['patternName', 'patternDescription', 'roles', 'assignments'],
+			additionalProperties: false
 		}
 	};
 }
