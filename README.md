@@ -1,4 +1,4 @@
-# Atlas — See the shape of your codebase
+# Atlas Graph— See the shape of your codebase
 
 Atlas turns your project into interactive diagrams inside VS Code. It builds a
 local graph of your modules, files, functions, calls, and dependencies, so you

@@ -1,7 +1,7 @@
 {
   "author": "drixev",
-  "name": "atlas",
-  "displayName": "Atlas",
+  "name": "atlas-graph",
+  "displayName": "Atlas Graph",
   "description": "Visualize and navigate the code graph of your project — dependencies, calls, and structure — directly inside VS Code.",
   "version": "0.1.0",
   "publisher": "drixev",
