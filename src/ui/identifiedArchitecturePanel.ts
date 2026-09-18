@@ -14,7 +14,7 @@ import { IdentifiedArchitectureModel } from './identifiedArchitecture';
 import { FOCUS_SETTINGS_VIEW_COMMAND } from './settingsView';
 import { IdentifiedArchitectureHostToWebviewMessage, IdentifiedArchitectureWebviewToHostMessage } from './webview/identifiedArchitectureProtocol';
 
-const VIEW_TYPE = 'agentGraph.identifiedArchitectureView';
+const VIEW_TYPE = 'atlas.identifiedArchitectureView';
 const VIEW_TITLE = 'Identified Architecture (AI)';
 const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
@@ -107,7 +107,7 @@ export class IdentifiedArchitecturePanel implements vscode.Disposable {
 				return;
 			case 'identifiedArchitecture:exportCaptureFailed':
 				this.pendingExport = undefined;
-				void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
+				void vscode.window.showErrorMessage('Atlas: exporting the current view failed.');
 				return;
 		}
 	}
@@ -203,7 +203,7 @@ function buildExportMarkdown(model: IdentifiedArchitectureModel): string {
 	return [
 		`# Identified Architecture — ${model.patternName}`,
 		'',
-		"> AI-generated interpretation of this codebase's architecture, inferred by Claude from the extracted Project Graph — not verified project structure.",
+		"> AI-generated interpretation of this codebase's architecture, inferred by Claude from the extracted Atlas — not verified project structure.",
 		'',
 		model.patternDescription,
 		'',

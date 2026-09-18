@@ -3,47 +3,64 @@
   "name": "atlas",
   "displayName": "Atlas",
   "description": "Visualize and navigate the code graph of your project — dependencies, calls, and structure — directly inside VS Code.",
-  "version": "0.0.1",
-  "publisher": "atlas",
-  "private": true,
+  "version": "0.1.0",
+  "publisher": "drixev",
   "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/drixev-tools/agent-graph"
+    "url": "https://github.com/drixev-tools/atlas"
   },
+  "bugs": {
+    "url": "https://github.com/drixev-tools/atlas/issues"
+  },
+  "homepage": "https://github.com/drixev-tools/atlas#readme",
   "engines": {
     "vscode": "^1.85.0"
-  },
+  },  
   "categories": [
     "Visualization",
     "Other"
+  ],
+  "keywords": [
+    "architecture",
+    "diagram",
+    "dependency graph",
+    "call graph",
+    "sequence diagram",
+    "code visualization",
+    "typescript",
+    "javascript",
+    "python",
+    "claude",
+    "ai"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "agentGraph.analyzeWorkspace",
+        "command": "atlas.analyzeWorkspace",
         "title": "Atlas: Analyze Workspace"
       },
       {
-        "command": "agentGraph.openArchitecture",
+        "command": "atlas.openArchitecture",
         "title": "Atlas: Open Architecture"
       },
       {
-        "command": "agentGraph.showSequenceDiagram",
+        "command": "atlas.showSequenceDiagram",
         "title": "Atlas: Show Sequence Diagram"
       },
       {
-        "command": "agentGraph.showActiveFileFlow",
+        "command": "atlas.showActiveFileFlow",
         "title": "Atlas: Show Active File Flow"
       },
       {
-        "command": "agentGraph.showIdentifiedArchitecture",
+        "command": "atlas.showIdentifiedArchitecture",
         "title": "Atlas: Show Identified Architecture (AI)"
       },
       {
-        "command": "agentGraph.sidebar.refresh",
+        "command": "atlas.sidebar.refresh",
         "title": "Atlas: Refresh Sidebar",
         "icon": "$(refresh)"
       }
@@ -51,21 +68,21 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "agentGraph",
+          "id": "atlas",
           "title": "Atlas",
           "icon": "media/activity-bar-icon.svg"
         }
       ]
     },
     "views": {
-      "agentGraph": [
+      "atlas": [
         {
-          "id": "agentGraph.explorer",
+          "id": "atlas.explorer",
           "name": "Atlas",
           "icon": "media/activity-bar-icon.svg"
         },
         {
-          "id": "agentGraph.settings",
+          "id": "atlas.settings",
           "name": "AI Settings",
           "type": "webview",
           "icon": "media/activity-bar-icon.svg"
@@ -75,8 +92,8 @@
     "menus": {
       "view/title": [
         {
-          "command": "agentGraph.sidebar.refresh",
-          "when": "view == agentGraph.explorer",
+          "command": "atlas.sidebar.refresh",
+          "when": "view == atlas.explorer",
           "group": "navigation"
         }
       ]
@@ -84,7 +101,7 @@
     "configuration": {
       "title": "Atlas",
       "properties": {
-        "agentGraph.claudeModel": {
+        "atlas.claudeModel": {
           "type": "string",
           "enum": [
             "claude-opus-5",
@@ -115,7 +132,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "vsci":"vsce package"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

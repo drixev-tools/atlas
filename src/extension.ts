@@ -51,7 +51,7 @@ export {
 let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-	console.log('Agent Graph extension activated');
+	console.log('Atlas extension activated');
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(ANALYZE_WORKSPACE_COMMAND, () => runAnalyzeWorkspaceCommand(context)),
@@ -74,7 +74,7 @@ export function deactivate(): void {
 }
 
 /**
- * "Project Graph: Analyze Workspace" — the full-rebuild entry point: runs
+ * "Atlas: Analyze Workspace" — the full-rebuild entry point: runs
  * both extraction pipelines over the first workspace folder and replaces the
  * Project Graph store with their combined output, reporting progress and
  * completion/failure to the user. See `analyzeWorkspace` for the underlying,
@@ -85,14 +85,14 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) {
-		void vscode.window.showErrorMessage('Project Graph: open a folder or workspace before analyzing it.');
+		void vscode.window.showErrorMessage('Atlas: open a folder or workspace before analyzing it.');
 		return;
 	}
 
 	await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: 'Project Graph: Analyzing workspace',
+			title: 'Atlas: Analyzing workspace',
 			cancellable: false
 		},
 		async (progress) => {
@@ -104,11 +104,11 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 				});
 				await sidebarTreeProvider?.refresh();
 				void vscode.window.showInformationMessage(
-					`Project Graph: analyzed workspace — ${result.nodeCount} nodes, ${result.edgeCount} edges.`
+					`Atlas: analyzed workspace — ${result.nodeCount} nodes, ${result.edgeCount} edges.`
 				);
 			} catch (error) {
 				void vscode.window.showErrorMessage(
-					`Project Graph: workspace analysis failed — ${error instanceof Error ? error.message : String(error)}`
+					`Atlas: workspace analysis failed — ${error instanceof Error ? error.message : String(error)}`
 				);
 			}
 		}
@@ -116,7 +116,7 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 }
 
 /**
- * "Project Graph: Open Architecture" — opens the React Flow graph panel
+ * "Atlas: Open Architecture" — opens the React Flow graph panel
  * (`../ui/graphPanel`), which now opens on its layered-architecture view
  * (`../ui/architectureLayers`) rather than the file-focused symbol view;
  * drilling into a file there opens its import flow in the Active File Flow
@@ -165,7 +165,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 	const activeEditor = vscode.window.activeTextEditor;
 	const activeFilePath = activeEditor?.document.uri.scheme === 'file' ? activeEditor.document.uri.fsPath : undefined;
 	if (!activeFilePath) {
-		void vscode.window.showErrorMessage('Project Graph: open a file before showing its sequence diagram.');
+		void vscode.window.showErrorMessage('Atlas: open a file before showing its sequence diagram.');
 		return;
 	}
 
@@ -173,7 +173,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 	const resolved = await loadSequenceFunctionCandidates(dbPath, activeFilePath);
 	if (!resolved || resolved.candidates.length === 0) {
 		void vscode.window.showErrorMessage(
-			'Project Graph: no functions found in this file — analyze the workspace first, or open a file that declares one.'
+			'Atlas: no functions found in this file — analyze the workspace first, or open a file that declares one.'
 		);
 		return;
 	}
@@ -194,7 +194,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 
 	const sequenceContext = await loadActiveFileSequenceContext(dbPath, resolved.activeFileId, picked.candidate.id);
 	if (!sequenceContext) {
-		void vscode.window.showErrorMessage(`Project Graph: "${picked.candidate.name}" is no longer in the Project Graph.`);
+		void vscode.window.showErrorMessage(`Atlas: "${picked.candidate.name}" is no longer in the Project Graph.`);
 		return;
 	}
 
@@ -216,7 +216,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 			await claudeSettings.clearApiKey();
 		} else {
 			void vscode.window.showWarningMessage(
-				`Project Graph: Claude narration failed, showing the non-AI sequence diagram instead — ${
+				`Atlas: Claude narration failed, showing the non-AI sequence diagram instead — ${
 					error instanceof Error ? error.message : String(error)
 				}`
 			);
@@ -261,7 +261,7 @@ async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionCon
 	if (entities.length === 0) {
 		store.close();
 		void vscode.window.showInformationMessage(
-			'Project Graph: nothing to identify an architecture from yet. Run "Project Graph: Analyze Workspace" first.'
+			'Atlas: nothing to identify an architecture from yet. Run "Atlas: Analyze Workspace" first.'
 		);
 		return;
 	}
@@ -297,7 +297,7 @@ async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionCon
 			panel.update(cached.model, cached.model ? 'ready' : 'needsApiKey');
 		} else {
 			void vscode.window.showWarningMessage(
-				`Project Graph: identifying the architecture failed — ${error instanceof Error ? error.message : String(error)}`
+				`Atlas: identifying the architecture failed — ${error instanceof Error ? error.message : String(error)}`
 			);
 			panel.update(cached.model, cached.model ? 'ready' : 'empty');
 		}

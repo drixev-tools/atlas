@@ -13,7 +13,7 @@ import { ApiKeyStore } from './apiKey';
 
 export { AuthenticationError };
 
-export const CLAUDE_MODEL_CONFIG_SECTION = 'agentGraph';
+export const CLAUDE_MODEL_CONFIG_SECTION = 'atlas';
 export const CLAUDE_MODEL_CONFIG_KEY = 'claudeModel';
 
 /**

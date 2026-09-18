@@ -3,4 +3,4 @@
 // both extension.ts (which registers the command) and sidebarView.ts (whose
 // shortcut list needs the id) can depend on it without a circular import
 // through ./graphPanel.
-export const OPEN_ARCHITECTURE_COMMAND = 'agentGraph.openArchitecture';
+export const OPEN_ARCHITECTURE_COMMAND = 'atlas.openArchitecture';

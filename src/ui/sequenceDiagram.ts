@@ -22,7 +22,7 @@ import {
 import { ProjectGraphStore } from '../core/store';
 import { SequenceDiagramContextInput, SequenceDiagramNarration, SequenceDiagramStepLabel } from '../design/sequenceDiagramClient';
 
-export const SHOW_SEQUENCE_DIAGRAM_COMMAND = 'agentGraph.showSequenceDiagram';
+export const SHOW_SEQUENCE_DIAGRAM_COMMAND = 'atlas.showSequenceDiagram';
 
 export interface SequenceFunctionCandidates {
 	activeFileId: string;

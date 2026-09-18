@@ -5,7 +5,7 @@
 // `ApiKeyStore` below.
 import * as vscode from 'vscode';
 
-export const ANTHROPIC_API_KEY_SECRET_KEY = 'agentGraph.anthropicApiKey';
+export const ANTHROPIC_API_KEY_SECRET_KEY = 'atlas.anthropicApiKey';
 
 /**
  * What `ClaudeSettingsStore` (./settings) needs from secret storage, narrowed

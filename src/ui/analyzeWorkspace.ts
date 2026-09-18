@@ -3,7 +3,7 @@ import { ProjectGraphStore } from '../core/store';
 import { runPythonPipeline } from '../pipelines/python';
 import { runTsPipeline } from '../pipelines/ts';
 
-export const ANALYZE_WORKSPACE_COMMAND = 'agentGraph.analyzeWorkspace';
+export const ANALYZE_WORKSPACE_COMMAND = 'atlas.analyzeWorkspace';
 
 export interface AnalyzeWorkspaceOptions {
 	/** Workspace folder to run both extraction pipelines over. */
@@ -24,7 +24,7 @@ export interface AnalyzeWorkspaceResult {
  * the Project Graph store's contents with their combined, de-duplicated
  * output (see `populateProjectGraph`). This is the full-rebuild counterpart
  * to the incremental updates `ProjectGraphWatcher` applies as files change,
- * and is what the "Project Graph: Analyze Workspace" command runs.
+ * and is what the "Atlas: Analyze Workspace" command runs.
  *
  * Kept free of any `vscode` dependency so it can be exercised directly in
  * tests; the command registered in `extension.ts` is a thin wrapper that

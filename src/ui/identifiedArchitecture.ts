@@ -16,7 +16,7 @@ import { EdgeKind } from '../pipelines/model';
 import { ArchitectureIdentification, ArchitectureIdentificationEntity, ArchitectureIdentificationRelation } from '../design/architectureIdentificationClient';
 import { ArchitectureLayerGroup, buildArchitectureLayerData } from './architectureLayers';
 
-export const SHOW_IDENTIFIED_ARCHITECTURE_COMMAND = 'agentGraph.showIdentifiedArchitecture';
+export const SHOW_IDENTIFIED_ARCHITECTURE_COMMAND = 'atlas.showIdentifiedArchitecture';
 
 export interface IdentifiedArchitectureEntities {
 	groups: ArchitectureLayerGroup[];

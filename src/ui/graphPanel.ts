@@ -27,8 +27,8 @@ import { findInitialFocusNodeId } from './graphFocus';
 import { visibleGraph } from './graphExpansion';
 import { ArchitectureLayerLabel, GraphExportView, HostToWebviewMessage, WebviewToHostMessage } from './webview/protocol';
 
-const VIEW_TYPE = 'agentGraph.graphView';
-const VIEW_TITLE = 'Project Graph';
+const VIEW_TYPE = 'atlas.graphView';
+const VIEW_TITLE = 'Atlas';
 
 /** Paths, relative to the extension root, of the esbuild-bundled webview script and stylesheet (see esbuild.js). esbuild emits `main.css` alongside `main.js` automatically because `main.tsx` imports CSS. */
 const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
@@ -146,7 +146,7 @@ export class GraphPanel implements vscode.Disposable {
 			void this.handleExportCaptured(message.format, message.payload, message.width, message.height);
 		} else if (message?.type === 'graph:exportCaptureFailed') {
 			this.pendingExport = undefined;
-			void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
+			void vscode.window.showErrorMessage('Atlas: exporting the current view failed.');
 		}
 	}
 
@@ -249,7 +249,7 @@ export class GraphPanel implements vscode.Disposable {
 		}
 		const file = this.store.getNode(fileId);
 		if (!file?.filePath) {
-			void vscode.window.showInformationMessage('Project Graph: no file to trace.');
+			void vscode.window.showInformationMessage('Atlas: no file to trace.');
 			return;
 		}
 		this.openActiveFileFlow(file.filePath);
@@ -314,12 +314,12 @@ export class GraphPanel implements vscode.Disposable {
 					edges: [...model.edges, ...files.model.edges]
 				};
 			}
-			return toMermaidMarkdown('Project Graph — Layered Architecture', diagramModelToMermaidFlowchart(model));
+			return toMermaidMarkdown('Atlas — Layered Architecture', diagramModelToMermaidFlowchart(model));
 		}
 
 		if (view.level === 'files') {
 			const files = buildArchitectureFlatFileData(this.store, graph);
-			return toMermaidMarkdown('Project Graph — Files', diagramModelToMermaidFlowchart(files.model));
+			return toMermaidMarkdown('Atlas — Files', diagramModelToMermaidFlowchart(files.model));
 		}
 
 		if (!view.focusNodeId) {
@@ -328,7 +328,7 @@ export class GraphPanel implements vscode.Disposable {
 		const workflowGraph = filterGraphForWorkflow(graph);
 		const visible = visibleGraph(workflowGraph, view.focusNodeId, new Set(view.expandedNodeIds));
 		const { model } = buildDiagramModel(visible);
-		return toMermaidMarkdown('Project Graph — Symbols', diagramModelToMermaidFlowchart(model));
+		return toMermaidMarkdown('Atlas — Symbols', diagramModelToMermaidFlowchart(model));
 	}
 
 	private renderHtml(): string {

@@ -320,7 +320,7 @@ export function App(): ReactElement {
 			model={mergedArchitectureModel}
 			entryPointIds={mergedEntryPointIds}
 			labelsByGroupId={architecture.labelsByGroupId}
-			loadingMessage={!graph ? 'Loading Project Graph…' : undefined}
+			loadingMessage={!graph ? 'Loading Atlas…' : undefined}
 			selectedId={selectedCardId}
 			expandedNodeIds={expandedArchNodeIds}
 			onNodeClick={handleArchNodeClick}
@@ -496,7 +496,7 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 		<div className="app-root">
 			{breadcrumb}
 			{loadingMessage && <EmptyState message={loadingMessage} />}
-			{!loadingMessage && flowNodes.length === 0 && <EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />}
+			{!loadingMessage && flowNodes.length === 0 && <EmptyState message='No nodes to display yet. Run "Atlas: Analyze Workspace" first.' />}
 			{!loadingMessage && flowNodes.length > 0 && (
 				<div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
 					<DiagramToolbar onExport={onExportClick} exportDisabled={isExporting} onResetLayout={resetLayout} />
@@ -633,9 +633,9 @@ function SymbolLevelView({ graph, focusNodeId, expandedNodeIds, selectedNodeId, 
 		<div className="app-root">
 			{breadcrumb}
 			{exportToolbar}
-			{!graph && <EmptyState message="Loading Project Graph…" />}
+			{!graph && <EmptyState message="Loading Atlas…" />}
 			{graph && visible.nodes.length === 0 && (
-				<EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />
+				<EmptyState message='No nodes to display yet. Run "Atlas: Analyze Workspace" first.' />
 			)}
 			{graph && visible.nodes.length > 0 && (
 				<div ref={containerRef} style={{ width: '100%', height: '100%' }}>

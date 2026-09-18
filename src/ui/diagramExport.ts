@@ -30,7 +30,7 @@ export async function pickExportDestination(defaultFileName: string): Promise<Ex
 	const extension = uri.fsPath.split('.').pop()?.toLowerCase();
 	const format = extension ? FORMAT_BY_EXTENSION[extension] : undefined;
 	if (!format) {
-		void vscode.window.showErrorMessage('Project Graph: export the diagram as a .md, .svg, .png, or .pdf file.');
+		void vscode.window.showErrorMessage('Atlas: export the diagram as a .md, .svg, .png, or .pdf file.');
 		return undefined;
 	}
 	return { uri, format };
@@ -59,5 +59,5 @@ export async function writePdfExportFromJpeg(uri: vscode.Uri, jpegBase64: string
 }
 
 function notifyExported(uri: vscode.Uri): void {
-	void vscode.window.showInformationMessage(`Project Graph: exported to ${uri.fsPath}`);
+	void vscode.window.showInformationMessage(`Atlas: exported to ${uri.fsPath}`);
 }

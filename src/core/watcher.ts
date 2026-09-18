@@ -92,7 +92,7 @@ export class ProjectGraphWatcher implements vscode.Disposable {
 	constructor(private readonly options: ProjectGraphWatcherOptions) {
 		this.pythonServer = options.pythonServer ?? new PythonServer();
 		this.ownsPythonServer = !options.pythonServer;
-		this.onError = options.onError ?? ((error, filePath) => console.error(`Agent Graph: failed to update ${filePath}`, error));
+		this.onError = options.onError ?? ((error, filePath) => console.error(`Atlas: failed to update ${filePath}`, error));
 
 		this.watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(options.rootDir, WATCH_GLOB));
 		this.disposables.push(

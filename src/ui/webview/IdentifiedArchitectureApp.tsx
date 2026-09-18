@@ -176,7 +176,7 @@ export function IdentifiedArchitectureApp(): ReactElement {
 			{status === 'needsApiKey' && <NeedsApiKeyState />}
 			{status === 'loading' && <EmptyState message="Identifying the project's architecture…" />}
 			{status === 'empty' && (
-				<EmptyState message='No architecture identified yet. Run "Project Graph: Analyze Workspace" first, then try again.' />
+				<EmptyState message='No architecture identified yet. Run "Atlas: Analyze Workspace" first, then try again.' />
 			)}
 			{status === 'ready' && payload && (
 				<div ref={diagramContainerRef} className="ag-identified-architecture-canvas" style={{ width: '100%', height: '100%' }}>

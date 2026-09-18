@@ -1,4 +1,4 @@
-// Local usage metrics: counts how many times each Agent Graph feature runs,
+// Local usage metrics: counts how many times each Atlas feature runs,
 // purely for the user's own visibility into their usage. This
 // module never makes a network call — it only reads/writes VS Code's
 // `Memento` (backed by a local file in the extension's per-install storage,
@@ -6,7 +6,7 @@
 // anywhere, by construction rather than by policy.
 import * as vscode from 'vscode';
 
-export const USAGE_METRICS_STORAGE_KEY = 'agentGraph.usageMetrics';
+export const USAGE_METRICS_STORAGE_KEY = 'atlas.usageMetrics';
 
 /** One entry per feature we count. Extend this list, not the storage shape, when a new feature needs a counter. */
 export type UsageMetricEvent =

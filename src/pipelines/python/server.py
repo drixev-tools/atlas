@@ -382,7 +382,7 @@ def handle_extract(params):
         extracted.append(result)
         for item in result["unresolved"]:
             print(
-                "agent-graph python server: unresolved {kind} '{name}' in {file}:{line} (from {enclosing})".format(
+                "atlas python server: unresolved {kind} '{name}' in {file}:{line} (from {enclosing})".format(
                     kind=item["kind"],
                     name=item["name"],
                     file=file_path,
@@ -410,7 +410,7 @@ def main():
         try:
             request = json.loads(line)
         except json.JSONDecodeError as exc:
-            print(f"agent-graph python server: malformed request: {exc}", file=sys.stderr)
+            print(f"atlas python server: malformed request: {exc}", file=sys.stderr)
             continue
 
         request_id = request.get("id")

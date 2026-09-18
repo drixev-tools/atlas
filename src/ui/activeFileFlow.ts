@@ -7,7 +7,7 @@ import * as path from 'path';
 import { ActiveFileFlow, buildActiveFileFlow } from '../core/activeFileFlow';
 import { StoredGraph } from '../core/store';
 
-export const SHOW_ACTIVE_FILE_FLOW_COMMAND = 'agentGraph.showActiveFileFlow';
+export const SHOW_ACTIVE_FILE_FLOW_COMMAND = 'atlas.showActiveFileFlow';
 
 export interface ActiveFileFlowViewData {
 	flow: ActiveFileFlow;

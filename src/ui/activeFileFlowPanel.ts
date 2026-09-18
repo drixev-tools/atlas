@@ -16,14 +16,14 @@ import { buildActiveFileFlowViewData } from './activeFileFlow';
 import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
 import { ActiveFileFlowHostToWebviewMessage, ActiveFileFlowPayload, ActiveFileFlowWebviewToHostMessage } from './webview/activeFileFlowProtocol';
 
-const VIEW_TYPE = 'agentGraph.activeFileFlowView';
+const VIEW_TYPE = 'atlas.activeFileFlowView';
 const VIEW_TITLE = 'Active File Flow';
 
 const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
 
 const NO_ACTIVE_FILE_MESSAGE = 'Open a file to see its flow.';
-const NOT_ANALYZED_MESSAGE = 'Project Graph: this file isn\'t in the Project Graph yet. Run "Project Graph: Analyze Workspace" first.';
+const NOT_ANALYZED_MESSAGE = 'Atlas: this file isn\'t in the Project Graph yet. Run "Atlas: Analyze Workspace" first.';
 
 export class ActiveFileFlowPanel implements vscode.Disposable {
 	private static current: ActiveFileFlowPanel | undefined;
@@ -123,7 +123,7 @@ export class ActiveFileFlowPanel implements vscode.Disposable {
 			void this.handleExportCaptured(message.format, message.payload, message.width, message.height);
 		} else if (message?.type === 'activeFileFlow:exportCaptureFailed') {
 			this.pendingExport = undefined;
-			void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
+			void vscode.window.showErrorMessage('Atlas: exporting the current view failed.');
 		}
 	}
 

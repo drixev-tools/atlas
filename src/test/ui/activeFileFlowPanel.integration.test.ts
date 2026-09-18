@@ -9,7 +9,7 @@ import { ActiveFileFlowPanel } from '../../ui/activeFileFlowPanel';
 import { ActiveFileFlowHostToWebviewMessage } from '../../ui/webview/activeFileFlowProtocol';
 
 function extensionUri(): vscode.Uri {
-	const extension = vscode.extensions.getExtension('atlas.atlas');
+	const extension = vscode.extensions.getExtension('drixev.atlas');
 	assert.ok(extension, 'atlas extension must be present');
 	return extension.extensionUri;
 }

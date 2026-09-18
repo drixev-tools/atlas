@@ -6,25 +6,25 @@ suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
 	test('Extension is present and activates', async () => {
-		const extension = vscode.extensions.getExtension('atlas.atlas');
+		const extension = vscode.extensions.getExtension('drixev.atlas');
 		assert.ok(extension);
 		await extension?.activate();
 		assert.strictEqual(extension?.isActive, true);
 	});
 
-	test('registers the "Project Graph: Analyze Workspace" command', async () => {
+	test('registers the "Atlas: Analyze Workspace" command', async () => {
 		const commands = await vscode.commands.getCommands(true);
-		assert.ok(commands.includes('agentGraph.analyzeWorkspace'));
+		assert.ok(commands.includes('atlas.analyzeWorkspace'));
 	});
 
-	test('registers the "Project Graph: Open Architecture" command', async () => {
+	test('registers the "Atlas: Open Architecture" command', async () => {
 		const commands = await vscode.commands.getCommands(true);
-		assert.ok(commands.includes('agentGraph.openArchitecture'));
+		assert.ok(commands.includes('atlas.openArchitecture'));
 	});
 
 	test('registers the "Show Sequence Diagram" command', async () => {
 		const commands = await vscode.commands.getCommands(true);
-		assert.ok(commands.includes('agentGraph.showSequenceDiagram'));
+		assert.ok(commands.includes('atlas.showSequenceDiagram'));
 	});
 
 	test('the show-sequence-diagram command reports an error instead of throwing when no file is open', async () => {

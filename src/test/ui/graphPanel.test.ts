@@ -5,7 +5,7 @@ import { ProjectGraphStore } from '../../core/store';
 import { GraphPanel } from '../../ui/graphPanel';
 
 function extensionUri(): vscode.Uri {
-	const extension = vscode.extensions.getExtension('atlas.atlas');
+	const extension = vscode.extensions.getExtension('drixev.atlas');
 	assert.ok(extension, 'atlas extension must be present');
 	return extension.extensionUri;
 }
@@ -49,11 +49,11 @@ suite('GraphPanel', () => {
 		}
 	});
 
-	test('the open-architecture command opens a "Project Graph" tab without throwing', async () => {
+	test('the open-architecture command opens an "Atlas" tab without throwing', async () => {
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(OPEN_ARCHITECTURE_COMMAND)));
 
-		const tab = await findTabByLabel('Project Graph');
-		assert.ok(tab, 'expected an open tab titled "Project Graph"');
+		const tab = await findTabByLabel('Atlas');
+		assert.ok(tab, 'expected an open tab titled "Atlas"');
 
 		await vscode.window.tabGroups.close(tab);
 	});
@@ -65,8 +65,8 @@ suite('GraphPanel', () => {
 			const again = GraphPanel.createOrShow(extensionUri(), await ProjectGraphStore.open());
 			assert.strictEqual(again, panel);
 
-			const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((t) => t.label === 'Project Graph');
-			assert.strictEqual(tabs.length, 1, 'expected only one "Project Graph" tab even after reopening');
+			const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((t) => t.label === 'Atlas');
+			assert.strictEqual(tabs.length, 1, 'expected only one "Atlas" tab even after reopening');
 		} finally {
 			panel.dispose();
 		}

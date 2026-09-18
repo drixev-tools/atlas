@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { CLAUDE_MODEL_OPTIONS, ClaudeSettingsStore } from '../design/settings';
 
-export const SETTINGS_VIEW_ID = 'agentGraph.settings';
+export const SETTINGS_VIEW_ID = 'atlas.settings';
 export const FOCUS_SETTINGS_VIEW_COMMAND = `${SETTINGS_VIEW_ID}.focus`;
 
 type WebviewToExtensionMessage =
@@ -23,7 +23,7 @@ interface SettingsState {
 }
 
 /**
- * Backs the `agentGraph.settings` Webview View. Holds the last-resolved
+ * Backs the `atlas.settings` Webview View. Holds the last-resolved
  * `vscode.WebviewView` only to push state to it (`postState`); all reads and
  * writes go through `settings` (`ClaudeSettingsStore`), so this class owns no
  * storage of its own.
@@ -53,7 +53,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 				}
 				await this.settings.setApiKey(apiKey);
 				await this.postState();
-				void vscode.window.showInformationMessage('Project Graph: Anthropic API key saved.');
+				void vscode.window.showInformationMessage('Atlas: Anthropic API key saved.');
 				return;
 			}
 			case 'clearApiKey':

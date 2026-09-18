@@ -13,9 +13,9 @@ import { SHOW_SEQUENCE_DIAGRAM_COMMAND } from './sequenceDiagram';
 import { GraphPanel } from './graphPanel';
 import { buildProjectFileTree, SidebarTreeNode } from './sidebarData';
 
-export const SIDEBAR_VIEW_ID = 'agentGraph.explorer';
-export const REFRESH_SIDEBAR_COMMAND = 'agentGraph.sidebar.refresh';
-export const SELECT_SIDEBAR_NODE_COMMAND = 'agentGraph.sidebar.selectNode';
+export const SIDEBAR_VIEW_ID = 'atlas.explorer';
+export const REFRESH_SIDEBAR_COMMAND = 'atlas.sidebar.refresh';
+export const SELECT_SIDEBAR_NODE_COMMAND = 'atlas.sidebar.selectNode';
 
 interface ShortcutElement {
 	kind: 'shortcut';
@@ -109,14 +109,14 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 		const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
 		item.iconPath = new vscode.ThemeIcon(element.icon);
 		item.command = { command: element.commandId, title: element.label };
-		item.contextValue = 'agentGraph.shortcut';
+		item.contextValue = 'atlas.shortcut';
 		return item;
 	}
 
 	private folderTreeItem(element: Extract<SidebarTreeNode, { kind: 'folder' }>): vscode.TreeItem {
 		const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
 		item.iconPath = vscode.ThemeIcon.Folder;
-		item.contextValue = 'agentGraph.folder';
+		item.contextValue = 'atlas.folder';
 		return item;
 	}
 
@@ -126,7 +126,7 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 		const item = new vscode.TreeItem(node.name, collapsibleState);
 		item.iconPath = new vscode.ThemeIcon(ICON_BY_NODE_KIND[node.kind] ?? 'symbol-misc');
 		item.description = node.kind === 'file' ? undefined : node.kind;
-		item.contextValue = `agentGraph.node.${node.kind}`;
+		item.contextValue = `atlas.node.${node.kind}`;
 		item.command = { command: SELECT_SIDEBAR_NODE_COMMAND, title: 'Open', arguments: [node] };
 		if (node.filePath) {
 			item.resourceUri = vscode.Uri.file(node.filePath);

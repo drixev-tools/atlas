@@ -13,7 +13,7 @@ import { SequenceDiagramViewState } from './sequenceDiagram';
 import { FOCUS_SETTINGS_VIEW_COMMAND } from './settingsView';
 import { SequenceDiagramWebviewToHostMessage } from './webview/sequenceDiagramProtocol';
 
-const VIEW_TYPE = 'agentGraph.sequenceDiagramView';
+const VIEW_TYPE = 'atlas.sequenceDiagramView';
 const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
 
@@ -97,7 +97,7 @@ export class SequenceDiagramPanel implements vscode.Disposable {
 				return;
 			case 'sequenceDiagram:exportCaptureFailed':
 				this.pendingExport = undefined;
-				void vscode.window.showErrorMessage('Project Graph: exporting the current view failed.');
+				void vscode.window.showErrorMessage('Atlas: exporting the current view failed.');
 				return;
 		}
 	}
