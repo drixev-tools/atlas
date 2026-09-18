@@ -159,8 +159,20 @@ export function buildIdentifiedArchitectureModel(
 	};
 }
 
+type RolePair = { source: string; target: string; kinds: Map<EdgeKind, number> };
+
+/**
+ * One `DiagramEdge` per pair of role groups, however many entity-level edges
+ * (in either direction) connected their members. Two role groups that depend
+ * on each other both ways — common once modules are lumped into a handful of
+ * roles, even when no single pair of underlying modules was itself circular —
+ * are folded into a single edge (kinds from both directions summed, the
+ * heavier direction's source/target kept) instead of two nearly-overlapping
+ * arrows drawn on top of each other with their count labels stacked at the
+ * same midpoint.
+ */
 function aggregateEdgesByRole(edges: readonly DiagramEdge[], roleIdByEntityId: ReadonlyMap<string, string>): DiagramEdge[] {
-	const pairsByKey = new Map<string, { source: string; target: string; kinds: Map<EdgeKind, number> }>();
+	const pairsByKey = new Map<string, RolePair>();
 	for (const edge of edges) {
 		const source = roleIdByEntityId.get(edge.source);
 		const target = roleIdByEntityId.get(edge.target);
@@ -174,12 +186,43 @@ function aggregateEdgesByRole(edges: readonly DiagramEdge[], roleIdByEntityId: R
 		}
 		pairsByKey.set(key, pair);
 	}
-	return [...pairsByKey.values()].map((pair) => ({
+
+	const merged: RolePair[] = [];
+	const consumedKeys = new Set<string>();
+	for (const [key, pair] of pairsByKey) {
+		if (consumedKeys.has(key)) {
+			continue;
+		}
+		consumedKeys.add(key);
+		const reverseKey = `${pair.target}::${pair.source}`;
+		const reverse = pairsByKey.get(reverseKey);
+		if (!reverse) {
+			merged.push(pair);
+			continue;
+		}
+		consumedKeys.add(reverseKey);
+		const [primary, secondary] = kindsTotal(pair.kinds) >= kindsTotal(reverse.kinds) ? [pair, reverse] : [reverse, pair];
+		const kinds = new Map(primary.kinds);
+		for (const [kind, count] of secondary.kinds) {
+			kinds.set(kind, (kinds.get(kind) ?? 0) + count);
+		}
+		merged.push({ source: primary.source, target: primary.target, kinds });
+	}
+
+	return merged.map((pair) => ({
 		id: `identified-architecture-edge:${pair.source}:${pair.target}`,
 		source: pair.source,
 		target: pair.target,
 		kinds: [...pair.kinds.entries()].map(([kind, count]) => ({ kind, count }))
 	}));
+}
+
+function kindsTotal(kinds: ReadonlyMap<EdgeKind, number>): number {
+	let total = 0;
+	for (const count of kinds.values()) {
+		total += count;
+	}
+	return total;
 }
 
 function roleGroupNodeId(role: string): string {

@@ -99,6 +99,106 @@ suite('buildIdentifiedArchitectureModel', () => {
 		assert.strictEqual(result.model.edges.length, 0);
 	});
 
+	suite('mutual dependencies between two role groups', () => {
+		const identification = {
+			patternName: 'x',
+			patternDescription: 'y',
+			roles: [{ role: 'Controller', description: 'a' }, { role: 'Service', description: 'b' }],
+			assignments: [
+				{ groupId: 'group:controllers', role: 'Controller' },
+				{ groupId: 'group:services', role: 'Service' }
+			]
+		};
+
+		function build(edges: DiagramEdge[]) {
+			const result = buildIdentifiedArchitectureModel(entityNodes, edges, identification);
+			const controllerRoleId = result.model.nodes.find((node) => node.id === 'group:controllers')?.parentId as string;
+			const serviceRoleId = result.model.nodes.find((node) => node.id === 'group:services')?.parentId as string;
+			return { edges: result.model.edges, controllerRoleId, serviceRoleId };
+		}
+
+		test('folds both directions into a single edge pointing along the heavier direction', () => {
+			const forward: DiagramEdge = { id: 'f', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 3 }] };
+			const backward: DiagramEdge = { id: 'b', source: 'group:services', target: 'group:controllers', kinds: [{ kind: 'calls', count: 1 }] };
+
+			const { edges, controllerRoleId, serviceRoleId } = build([forward, backward]);
+
+			assert.strictEqual(edges.length, 1);
+			assert.strictEqual(edges[0].source, controllerRoleId);
+			assert.strictEqual(edges[0].target, serviceRoleId);
+			assert.deepStrictEqual(edges[0].kinds, [{ kind: 'calls', count: 4 }]);
+		});
+
+		test('keeps the heavier direction even when it is the reverse of the first edge seen', () => {
+			const light: DiagramEdge = { id: 'l', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 1 }] };
+			const heavy: DiagramEdge = { id: 'h', source: 'group:services', target: 'group:controllers', kinds: [{ kind: 'calls', count: 5 }] };
+
+			const { edges, controllerRoleId, serviceRoleId } = build([light, heavy]);
+
+			assert.strictEqual(edges.length, 1);
+			assert.strictEqual(edges[0].source, serviceRoleId);
+			assert.strictEqual(edges[0].target, controllerRoleId);
+			assert.deepStrictEqual(edges[0].kinds, [{ kind: 'calls', count: 6 }]);
+		});
+
+		test('keeps the first-seen direction when both directions weigh the same', () => {
+			const forward: DiagramEdge = { id: 'f', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 2 }] };
+			const backward: DiagramEdge = { id: 'b', source: 'group:services', target: 'group:controllers', kinds: [{ kind: 'calls', count: 2 }] };
+
+			const { edges, controllerRoleId, serviceRoleId } = build([forward, backward]);
+
+			assert.strictEqual(edges.length, 1);
+			assert.strictEqual(edges[0].source, controllerRoleId);
+			assert.strictEqual(edges[0].target, serviceRoleId);
+		});
+
+		test('sums counts per kind across directions, keeping kinds that only one direction had', () => {
+			const forward: DiagramEdge = { id: 'f', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 3 }, { kind: 'imports', count: 1 }] };
+			const backward: DiagramEdge = { id: 'b', source: 'group:services', target: 'group:controllers', kinds: [{ kind: 'calls', count: 1 }, { kind: 'extends', count: 2 }] };
+
+			const { edges } = build([forward, backward]);
+
+			assert.strictEqual(edges.length, 1);
+			const countsByKind = new Map(edges[0].kinds.map((entry) => [entry.kind, entry.count]));
+			assert.deepStrictEqual(
+				[...countsByKind.entries()].sort(),
+				[['calls', 4], ['extends', 2], ['imports', 1]]
+			);
+		});
+
+		test('sums multiple entity edges landing on the same direction before comparing directions', () => {
+			const extraNode: DiagramNode = { id: 'group:handlers', kind: 'group', label: 'handlers' };
+			const twoControllers = {
+				...identification,
+				assignments: [...identification.assignments, { groupId: 'group:handlers', role: 'Controller' }]
+			};
+			const edges: DiagramEdge[] = [
+				{ id: 'f1', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 1 }] },
+				{ id: 'f2', source: 'group:handlers', target: 'group:services', kinds: [{ kind: 'calls', count: 1 }] },
+				{ id: 'f3', source: 'group:handlers', target: 'group:services', kinds: [{ kind: 'calls', count: 1 }] },
+				{ id: 'b1', source: 'group:services', target: 'group:controllers', kinds: [{ kind: 'calls', count: 2 }] }
+			];
+
+			const result = buildIdentifiedArchitectureModel([...entityNodes, extraNode], edges, twoControllers);
+			const controllerRoleId = result.model.nodes.find((node) => node.id === 'group:controllers')?.parentId;
+
+			assert.strictEqual(result.model.edges.length, 1);
+			assert.strictEqual(result.model.edges[0].source, controllerRoleId);
+			assert.deepStrictEqual(result.model.edges[0].kinds, [{ kind: 'calls', count: 5 }]);
+		});
+
+		test('leaves a one-directional pair of role groups as its own separate edge', () => {
+			const forward: DiagramEdge = { id: 'f', source: 'group:controllers', target: 'group:services', kinds: [{ kind: 'calls', count: 3 }] };
+
+			const { edges, controllerRoleId, serviceRoleId } = build([forward]);
+
+			assert.strictEqual(edges.length, 1);
+			assert.strictEqual(edges[0].source, controllerRoleId);
+			assert.strictEqual(edges[0].target, serviceRoleId);
+			assert.deepStrictEqual(edges[0].kinds, [{ kind: 'calls', count: 3 }]);
+		});
+	});
+
 	test('leaves an unassigned module (and any edge touching it) out of the model', () => {
 		const identification = {
 			patternName: 'x',
