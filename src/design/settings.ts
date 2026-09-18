@@ -2,16 +2,29 @@
 // key (still SecretStorage-backed, see ./apiKey) plus which Claude model to
 // call — a non-secret preference, so it lives in plain VS Code configuration
 // instead. `ClaudeSettingsStore` is the one interface both pieces sit
-// behind, narrowed like `ApiKeyStore` (./apiKey) and `ClaudeDesignClient`
-// (./claudeClient) so tests can supply an in-memory fake; `resolveClaudeSettings`
-// below gets both values in one shot instead of duplicating either storage
-// mechanism.
+// behind, narrowed like `ApiKeyStore` (./apiKey) so tests can supply an
+// in-memory fake; `resolveClaudeSettings` below gets both values in one shot
+// instead of duplicating either storage mechanism. Also re-exports
+// `AuthenticationError` from `@anthropic-ai/sdk` as the one place every AI
+// client and caller (../extension, ../ui/graphPanel) imports it from.
 import * as vscode from 'vscode';
+import { AuthenticationError } from '@anthropic-ai/sdk';
 import { ApiKeyStore } from './apiKey';
-import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
+
+export { AuthenticationError };
 
 export const CLAUDE_MODEL_CONFIG_SECTION = 'agentGraph';
 export const CLAUDE_MODEL_CONFIG_KEY = 'claudeModel';
+
+/**
+ * The model id the system this extension runs under reports as its own
+ * (`claude-sonnet-5`), confirmed against `@anthropic-ai/sdk`'s own `Model`
+ * type union — i.e. a real, currently available model, not a guess. Used as
+ * the fallback when no model has been configured yet, by every AI client
+ * (`./architectureIdentificationClient`, `./layerNamingClient`,
+ * `./sequenceDiagramClient`) and by `WorkspaceModelConfigStore` below.
+ */
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
 
 export interface ClaudeModelOption {
 	id: string;
@@ -63,9 +76,9 @@ export interface ClaudeSettings {
 /**
  * What every AI-powered feature needs to call Claude: the API key
  * (SecretStorage-backed) and the model (plain configuration), behind one
- * interface so `../ui/settingsView`, Design Project, and the future
- * Impact/Sequence Diagram views all read and write through the same store
- * rather than each touching `ApiKeyStore`/`ModelConfigStore` directly.
+ * interface so `../ui/settingsView` and every AI client read and write
+ * through the same store rather than each touching
+ * `ApiKeyStore`/`ModelConfigStore` directly.
  */
 export interface ClaudeSettingsStore {
 	getApiKey(): Promise<string | undefined>;

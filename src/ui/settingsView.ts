@@ -159,7 +159,7 @@ function renderHtml(webview: vscode.Webview): string {
 	<button id="clearApiKeyButton" class="secondary">Clear API Key</button>
 
 	<h3>Claude Model</h3>
-	<p class="description">Used by Design Project and other AI-powered features.</p>
+	<p class="description">Used by AI-powered features (Sequence Diagram, Identified Architecture).</p>
 	<select id="modelSelect"></select>
 
 	<script nonce="${nonce}">

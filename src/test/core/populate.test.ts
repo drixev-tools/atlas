@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { populateProjectGraph, populateProposedGraph } from '../../core/populate';
+import { populateProjectGraph } from '../../core/populate';
 import { ProjectGraphStore } from '../../core/store';
 import { runTsPipeline } from '../../pipelines/ts';
 import { runPythonPipeline } from '../../pipelines/python';
@@ -72,38 +72,5 @@ suite('populateProjectGraph: both pipelines', () => {
 		for (const node of store.getGraph().nodes) {
 			assert.strictEqual(node.status, 'proposed_only');
 		}
-	});
-});
-
-suite('populateProposedGraph', () => {
-	let store: ProjectGraphStore;
-
-	setup(async () => {
-		store = await ProjectGraphStore.open();
-	});
-
-	teardown(() => {
-		store.close();
-	});
-
-	test('tags every node/edge proposed_only without disturbing the observed graph', async () => {
-		store.upsertNode({ id: 'file:/project/index.ts', kind: 'file', name: 'index.ts', filePath: '/project/index.ts' });
-
-		populateProposedGraph(store, {
-			nodes: [{ id: 'proposed:module:auth', kind: 'module', name: 'auth' }],
-			edges: []
-		});
-
-		assert.strictEqual(store.getNode('file:/project/index.ts')?.status, 'observed_only');
-		assert.strictEqual(store.getNode('proposed:module:auth')?.status, 'proposed_only');
-	});
-
-	test('a second call replaces the previous proposed graph instead of accumulating it', async () => {
-		populateProposedGraph(store, { nodes: [{ id: 'proposed:module:old', kind: 'module', name: 'old' }], edges: [] });
-		populateProposedGraph(store, { nodes: [{ id: 'proposed:module:new', kind: 'module', name: 'new' }], edges: [] });
-
-		assert.strictEqual(store.getNode('proposed:module:old'), undefined);
-		assert.ok(store.getNode('proposed:module:new'));
-		assert.strictEqual(store.listNodes({ status: 'proposed_only' }).length, 1);
 	});
 });

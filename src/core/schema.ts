@@ -1,10 +1,11 @@
 import type { Database } from 'sql.js';
 
 /**
- * Where a node/edge stands relative to a design ("proposed") graph once Epic
- * 10 (Proposed vs Observed) compares it against what the extraction
- * pipelines actually found in the code ("observed"). Until that comparison
- * exists, everything the pipelines produce is tagged `observed_only`.
+ * Where a node/edge stands relative to a proposed (not-yet-real) graph, as
+ * opposed to what the extraction pipelines actually found in the code
+ * ("observed"). Currently only `observed_only` is ever produced — the
+ * `matched`/`proposed_only` states exist for a future proposed-vs-observed
+ * comparison, not any feature this extension ships today.
  */
 export type GraphStatus = 'matched' | 'proposed_only' | 'observed_only';
 

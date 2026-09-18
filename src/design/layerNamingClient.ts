@@ -1,13 +1,12 @@
 // Claude integration for the architecture view's per-layer/module labels: a
 // short display name and one-sentence description for each folder-derived
 // group ../ui/architectureLayers builds, batched into a single Claude call
-// (tool use, like ./claudeClient) rather than one call per group. Takes a
-// narrow `LayerNamingTarget` list instead of importing
-// `../core/moduleAggregation`'s `DiagramModel` directly, keeping this
-// design-layer module free of any dependency on the core layer, like
-// ./sequenceDiagramClient.
+// (tool use) rather than one call per group. Takes a narrow
+// `LayerNamingTarget` list instead of importing `../core/moduleAggregation`'s
+// `DiagramModel` directly, keeping this design-layer module free of any
+// dependency on the core layer, like ./sequenceDiagramClient.
 import Anthropic from '@anthropic-ai/sdk';
-import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
+import { DEFAULT_CLAUDE_MODEL } from './settings';
 
 const MAX_OUTPUT_TOKENS = 2048;
 
@@ -112,8 +111,8 @@ function buildNameLayersTool(): Anthropic.Tool {
 }
 
 /**
- * Validates the tool call's `input` at runtime, like `parseProposedArchitecture`
- * (./claudeClient) and `parseSequenceDiagram` (./sequenceDiagramClient).
+ * Validates the tool call's `input` at runtime, like
+ * `parseSequenceDiagramNarration` (./sequenceDiagramClient).
  * Silently drops an entry naming a group id outside `knownGroupIds` (Claude
  * inventing one) or missing a required field, rather than failing the whole
  * batch over one bad entry — the caller falls back to the folder name for

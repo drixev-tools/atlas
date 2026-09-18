@@ -1,12 +1,12 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { ANALYZE_WORKSPACE_COMMAND, DESIGN_PROJECT_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../extension';
+import { ANALYZE_WORKSPACE_COMMAND, SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../extension';
 
 suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
 	test('Extension is present and activates', async () => {
-		const extension = vscode.extensions.getExtension('agent-graph.agent-graph');
+		const extension = vscode.extensions.getExtension('atlas.atlas');
 		assert.ok(extension);
 		await extension?.activate();
 		assert.strictEqual(extension?.isActive, true);
@@ -22,11 +22,6 @@ suite('Extension Test Suite', () => {
 		assert.ok(commands.includes('agentGraph.openArchitecture'));
 	});
 
-	test('registers the "Project Graph: Design Project" command', async () => {
-		const commands = await vscode.commands.getCommands(true);
-		assert.ok(commands.includes('agentGraph.designProject'));
-	});
-
 	test('registers the "Show Sequence Diagram" command', async () => {
 		const commands = await vscode.commands.getCommands(true);
 		assert.ok(commands.includes('agentGraph.showSequenceDiagram'));
@@ -39,10 +34,6 @@ suite('Extension Test Suite', () => {
 	test('the analyze-workspace command reports an error instead of throwing when no folder is open', async () => {
 		assert.strictEqual(vscode.workspace.workspaceFolders, undefined, 'this suite expects no workspace folder open');
 		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(ANALYZE_WORKSPACE_COMMAND)));
-	});
-
-	test('the design-project command focuses the sidebar Design Project view instead of throwing', async () => {
-		await assert.doesNotReject(Promise.resolve(vscode.commands.executeCommand(DESIGN_PROJECT_COMMAND)));
 	});
 
 	// The open-architecture command's actual behavior (opening/reviving the

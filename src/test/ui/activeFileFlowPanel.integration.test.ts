@@ -9,8 +9,8 @@ import { ActiveFileFlowPanel } from '../../ui/activeFileFlowPanel';
 import { ActiveFileFlowHostToWebviewMessage } from '../../ui/webview/activeFileFlowProtocol';
 
 function extensionUri(): vscode.Uri {
-	const extension = vscode.extensions.getExtension('agent-graph.agent-graph');
-	assert.ok(extension, 'agent-graph extension must be present');
+	const extension = vscode.extensions.getExtension('atlas.atlas');
+	assert.ok(extension, 'atlas extension must be present');
 	return extension.extensionUri;
 }
 

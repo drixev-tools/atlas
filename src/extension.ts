@@ -17,8 +17,6 @@ import {
 	applyArchitectureIdentification,
 	applySequenceDiagramNarration,
 	buildFallbackSequenceDiagramViewState,
-	DESIGN_PROJECT_COMMAND,
-	FOCUS_DESIGN_PROJECT_VIEW_COMMAND,
 	GraphPanel,
 	identifiedArchitectureEntities,
 	IdentifiedArchitecturePanel,
@@ -26,7 +24,6 @@ import {
 	loadSequenceFunctionCandidates,
 	OPEN_ARCHITECTURE_COMMAND,
 	ProjectGraphTreeProvider,
-	registerDesignProjectView,
 	registerSettingsView,
 	registerSidebar,
 	resolveCachedIdentifiedArchitecture,
@@ -40,7 +37,6 @@ import {
 
 export {
 	ANALYZE_WORKSPACE_COMMAND,
-	DESIGN_PROJECT_COMMAND,
 	OPEN_ARCHITECTURE_COMMAND,
 	SHOW_ACTIVE_FILE_FLOW_COMMAND,
 	SHOW_IDENTIFIED_ARCHITECTURE_COMMAND,
@@ -49,9 +45,8 @@ export {
 
 /**
  * Sidebar Panel's Tree View provider, refreshed after anything that changes
- * the Project Graph (the Analyze Workspace command, a Design Project
- * submission) so the tree doesn't go stale. `undefined` until `activate()`
- * registers it.
+ * the Project Graph (currently just the Analyze Workspace command) so the
+ * tree doesn't go stale. `undefined` until `activate()` registers it.
  */
 let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
 
@@ -63,8 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand(OPEN_ARCHITECTURE_COMMAND, () => openArchitecture(context)),
 		vscode.commands.registerCommand(SHOW_SEQUENCE_DIAGRAM_COMMAND, () => runShowSequenceDiagramCommand(context)),
 		vscode.commands.registerCommand(SHOW_ACTIVE_FILE_FLOW_COMMAND, () => runShowActiveFileFlowCommand(context)),
-		vscode.commands.registerCommand(SHOW_IDENTIFIED_ARCHITECTURE_COMMAND, () => runShowIdentifiedArchitectureCommand(context)),
-		vscode.commands.registerCommand(DESIGN_PROJECT_COMMAND, () => vscode.commands.executeCommand(FOCUS_DESIGN_PROJECT_VIEW_COMMAND))
+		vscode.commands.registerCommand(SHOW_IDENTIFIED_ARCHITECTURE_COMMAND, () => runShowIdentifiedArchitectureCommand(context))
 	);
 
 	sidebarTreeProvider = registerSidebar(context, {
@@ -73,14 +67,6 @@ export function activate(context: vscode.ExtensionContext): void {
 	});
 
 	registerSettingsView(context, new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets)));
-
-	registerDesignProjectView(context, {
-		settings: new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets)),
-		resolveRootDir: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-		resolveDbPath: () => resolveGraphDbPath(context),
-		onSubmit: () => recordUsage(context, 'designProject'),
-		onDesigned: () => sidebarTreeProvider?.refresh()
-	});
 }
 
 export function deactivate(): void {

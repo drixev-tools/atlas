@@ -34,7 +34,6 @@ suite('MementoUsageMetricsStore', () => {
 			analyzeWorkspace: 1,
 			openArchitecture: 1,
 			showSequenceDiagram: 1,
-			designProject: 1,
 			incrementalUpdate: 1
 		};
 
@@ -49,10 +48,10 @@ suite('MementoUsageMetricsStore', () => {
 		const store = new MementoUsageMetricsStore(fakeMemento() as never);
 
 		const before = store.getAll();
-		await store.record('designProject');
+		await store.record('showIdentifiedArchitecture');
 
 		assert.deepStrictEqual(before, {});
-		assert.deepStrictEqual(store.getAll(), { designProject: 1 });
+		assert.deepStrictEqual(store.getAll(), { showIdentifiedArchitecture: 1 });
 	});
 
 	test('persists counts through the underlying memento so a new store instance sees them', async () => {

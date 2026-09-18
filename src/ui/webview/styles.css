@@ -52,14 +52,6 @@ body,
 	background: #4a90d9;
 }
 
-.status-legend .swatch.status-proposed_only {
-	border: 2px dashed #b18cf2;
-}
-
-.status-legend .swatch.status-matched {
-	border: 2px solid #4caf50;
-}
-
 .workflow-node {
 	position: relative;
 	width: 200px;
@@ -85,15 +77,6 @@ body,
 .workflow-node.kind-method,
 .workflow-node.kind-function {
 	border-radius: 999px;
-}
-
-.workflow-node.status-proposed_only {
-	border-style: dashed;
-	border-color: #b18cf2;
-}
-
-.workflow-node.status-matched {
-	border-color: #4caf50;
 }
 
 .workflow-node.is-focused {
@@ -130,10 +113,6 @@ body,
 	color: var(--vscode-badge-foreground, #ffffff);
 	font-size: 12px;
 	font-weight: 700;
-}
-
-.workflow-edge.status-proposed_only .react-flow__edge-path {
-	stroke-dasharray: 4 3;
 }
 
 .detail-panel {

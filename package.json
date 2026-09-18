@@ -1,10 +1,10 @@
 {
   "author": "drixev",
-  "name": "agent-graph",
-  "displayName": "Agent Graph",
+  "name": "atlas",
+  "displayName": "Atlas",
   "description": "Visualize and navigate the code graph of your project — dependencies, calls, and structure — directly inside VS Code.",
   "version": "0.0.1",
-  "publisher": "agent-graph",
+  "publisher": "atlas",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -24,31 +24,27 @@
     "commands": [
       {
         "command": "agentGraph.analyzeWorkspace",
-        "title": "Project Graph: Analyze Workspace"
+        "title": "Atlas: Analyze Workspace"
       },
       {
         "command": "agentGraph.openArchitecture",
-        "title": "Project Graph: Open Architecture"
+        "title": "Atlas: Open Architecture"
       },
       {
         "command": "agentGraph.showSequenceDiagram",
-        "title": "Project Graph: Show Sequence Diagram"
+        "title": "Atlas: Show Sequence Diagram"
       },
       {
         "command": "agentGraph.showActiveFileFlow",
-        "title": "Project Graph: Show Active File Flow"
+        "title": "Atlas: Show Active File Flow"
       },
       {
         "command": "agentGraph.showIdentifiedArchitecture",
-        "title": "Project Graph: Show Identified Architecture (AI)"
-      },
-      {
-        "command": "agentGraph.designProject",
-        "title": "Project Graph: Design Project"
+        "title": "Atlas: Show Identified Architecture (AI)"
       },
       {
         "command": "agentGraph.sidebar.refresh",
-        "title": "Project Graph: Refresh Sidebar",
+        "title": "Atlas: Refresh Sidebar",
         "icon": "$(refresh)"
       }
     ],
@@ -56,7 +52,7 @@
       "activitybar": [
         {
           "id": "agentGraph",
-          "title": "Project Graph",
+          "title": "Atlas",
           "icon": "media/activity-bar-icon.svg"
         }
       ]
@@ -65,13 +61,7 @@
       "agentGraph": [
         {
           "id": "agentGraph.explorer",
-          "name": "Project Graph",
-          "icon": "media/activity-bar-icon.svg"
-        },
-        {
-          "id": "agentGraph.designProjectView",
-          "name": "Design Project",
-          "type": "webview",
+          "name": "Atlas",
           "icon": "media/activity-bar-icon.svg"
         },
         {
@@ -92,7 +82,7 @@
       ]
     },
     "configuration": {
-      "title": "Agent Graph",
+      "title": "Atlas",
       "properties": {
         "agentGraph.claudeModel": {
           "type": "string",
@@ -107,7 +97,7 @@
             "Claude Haiku 4.5 (fastest)"
           ],
           "default": "claude-sonnet-5",
-          "description": "Claude model Agent Graph uses for AI-powered features (Design Project, Sequence Diagram, and Identified Architecture views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
+          "description": "Claude model Atlas uses for AI-powered features (Sequence Diagram and Identified Architecture views). The Anthropic API key itself is configured separately, in the AI Settings sidebar view, and is never stored in this setting."
         }
       }
     }

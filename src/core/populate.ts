@@ -30,18 +30,3 @@ export function populateProjectGraph(
 	store.upsertNodes(merged.nodes, status);
 	store.upsertEdges(merged.edges, status);
 }
-
-/**
- * Replaces just the Proposed Graph slice of the store — every node/edge
- * currently tagged `proposed_only` — with `graph`, leaving the Observed
- * Graph (and anything already tagged `matched`) untouched. This is what the
- * "Project Graph: Design Project" command needs: each run reflects only the
- * latest intent's proposal instead of accumulating every past one, while
- * still coexisting with whatever "Analyze Workspace" already found in the
- * code.
- */
-export function populateProposedGraph(store: ProjectGraphStore, graph: CodeGraph): void {
-	store.clearByStatus('proposed_only');
-	store.upsertNodes(graph.nodes, 'proposed_only');
-	store.upsertEdges(graph.edges, 'proposed_only');
-}

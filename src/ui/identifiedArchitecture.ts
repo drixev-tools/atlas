@@ -3,9 +3,7 @@
 // Architecture" (../architectureLayers) where Claude names the project's real
 // architecture pattern and assigns each real folder module an architectural
 // role, regrouping those same modules under role groups instead of their
-// folder — mirroring how ../design/proposedGraph.ts turns Claude's structured
-// response into a graph, but in reverse: analyzing the already-extracted real
-// graph instead of proposing a new one. Cached in the Project Graph Core like
+// folder. Cached in the Project Graph Core like
 // ../architectureLayers' layer labels (`ProjectGraphStore`'s
 // `getIdentifiedArchitecture`/`setIdentifiedArchitecture`), refreshed only
 // when the underlying module set actually changed. Kept free of any
@@ -112,10 +110,9 @@ interface IdentificationLike {
  * Converts Claude's `identify_architecture` response (or the cached
  * equivalent from `ProjectGraphStore.getIdentifiedArchitecture`) into a
  * `DiagramModel` rooted at one group per distinct role, each containing the
- * real modules (`entityNodes`) assigned to it — the same ref-resolution shape
- * `buildProposedGraph` (../design/proposedGraph) uses, but regrouping
- * existing nodes by an assigned role instead of resolving brand-new ones. An
- * assignment naming an unknown module id or a role missing from `roles`
+ * real modules (`entityNodes`) assigned to it, regrouping existing nodes by
+ * an assigned role instead of their folder. An assignment naming an unknown
+ * module id or a role missing from `roles`
  * (Claude inventing one, or a corrupted cache row) is silently dropped, like
  * `parseArchitectureIdentification`'s own validation — that module simply
  * doesn't appear in the identified diagram.

@@ -10,7 +10,7 @@
 // like ./layerNamingClient.
 import Anthropic from '@anthropic-ai/sdk';
 import { EdgeKind } from '../pipelines/model';
-import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
+import { DEFAULT_CLAUDE_MODEL } from './settings';
 
 const MAX_OUTPUT_TOKENS = 4096;
 

@@ -707,14 +707,6 @@ function Legend(): ReactElement {
 				<span className="swatch status-observed_only" />
 				Observed
 			</span>
-			<span>
-				<span className="swatch status-proposed_only" />
-				Proposed only
-			</span>
-			<span>
-				<span className="swatch status-matched" />
-				Matched
-			</span>
 		</div>
 	);
 }

@@ -15,8 +15,6 @@ export * from './activeFileFlow';
 export * from './activeFileFlowPanel';
 export * from './identifiedArchitecture';
 export * from './identifiedArchitecturePanel';
-export * from './designProject';
-export * from './designProjectView';
 export * from './sidebarData';
 export * from './sidebarView';
 export * from './settingsView';

@@ -15,7 +15,6 @@ export type UsageMetricEvent =
 	| 'showSequenceDiagram'
 	| 'showActiveFileFlow'
 	| 'showIdentifiedArchitecture'
-	| 'designProject'
 	| 'incrementalUpdate';
 
 export type UsageMetrics = Partial<Record<UsageMetricEvent, number>>;

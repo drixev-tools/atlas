@@ -1,15 +1,14 @@
 // Claude integration for the sequence diagram view's narration only: the
 // participants, lifelines, steps and their order are already fully
-// determined by ../core/sequenceContext's real `calls`-edge chain, so unlike
-// ./claudeClient's proposed architecture, Claude is never asked to invent
-// structure here — only to relabel each already-fixed step in nicer language
-// and write a short overall summary. Takes a narrow
-// `SequenceDiagramContextInput` instead of importing ../core/sequenceContext's
-// `SequenceContext` directly, keeping this design-layer module free of any
-// dependency on the core layer.
+// determined by ../core/sequenceContext's real `calls`-edge chain, so Claude
+// is never asked to invent structure here — only to relabel each
+// already-fixed step in nicer language and write a short overall summary.
+// Takes a narrow `SequenceDiagramContextInput` instead of importing
+// ../core/sequenceContext's `SequenceContext` directly, keeping this
+// design-layer module free of any dependency on the core layer.
 import Anthropic from '@anthropic-ai/sdk';
 import { NodeKind } from '../pipelines/model';
-import { DEFAULT_CLAUDE_MODEL } from './claudeClient';
+import { DEFAULT_CLAUDE_MODEL } from './settings';
 
 const MAX_OUTPUT_TOKENS = 1024;
 
@@ -133,7 +132,8 @@ function buildRecordSequenceNarrationTool(): Anthropic.Tool {
  * Anthropic's side but says nothing about what actually crosses the wire —
  * before `../ui/sequenceDiagram` hands it to the view. Exported so this
  * hand-written validation can be unit tested directly, without mocking the
- * Anthropic API, matching `parseProposedArchitecture` (./claudeClient).
+ * Anthropic API, matching `parseArchitectureIdentification`
+ * (./architectureIdentificationClient).
  */
 export function parseSequenceDiagramNarration(input: unknown): SequenceDiagramNarration {
 	if (typeof input !== 'object' || input === null) {
