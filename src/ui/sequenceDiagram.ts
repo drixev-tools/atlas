@@ -1,10 +1,10 @@
 // "Show Sequence Diagram" orchestration: reads the active file's import
-// ancestry plus a chosen function's call chain from the Project Graph
+// ancestry plus a chosen function's call chain from the Atlas graph
 // (../core/sequenceContext) and maps it into what
 // ../design/sequenceDiagramClient's Claude client needs. Unlike the
 // import-based approximation this replaces, the diagram itself (lifelines,
 // participants, steps and their order) is always fully derivable from the
-// Project Graph — `buildFallbackSequenceDiagramViewState` needs no API key at
+// Atlas — `buildFallbackSequenceDiagramViewState` needs no API key at
 // all; Claude only relabels steps and writes a summary.
 // The dedicated view itself lives in ./sequenceDiagramView, kept separate.
 import { NodeKind } from '../pipelines/model';
@@ -19,7 +19,7 @@ import {
 	SequenceParticipant,
 	SequenceStepKind
 } from '../core/sequenceContext';
-import { ProjectGraphStore } from '../core/store';
+import { AtlasStore } from '../core/store';
 import { SequenceDiagramContextInput, SequenceDiagramNarration, SequenceDiagramStepLabel } from '../design/sequenceDiagramClient';
 
 export const SHOW_SEQUENCE_DIAGRAM_COMMAND = 'atlas.showSequenceDiagram';
@@ -29,9 +29,9 @@ export interface SequenceFunctionCandidates {
 	candidates: SequenceFunctionCandidate[];
 }
 
-/** The functions/methods `activeFilePath` declares, for the "which function?" Quick Pick. `undefined` when the file isn't in the Project Graph at `dbPath`. */
+/** The functions/methods `activeFilePath` declares, for the "which function?" Quick Pick. `undefined` when the file isn't in the Atlas graph at `dbPath`. */
 export async function loadSequenceFunctionCandidates(dbPath: string | undefined, activeFilePath: string): Promise<SequenceFunctionCandidates | undefined> {
-	const store = await ProjectGraphStore.open({ filePath: dbPath });
+	const store = await AtlasStore.open({ filePath: dbPath });
 	try {
 		const activeFileId = resolveActiveFileId(store.getGraph(), activeFilePath);
 		if (!activeFileId) {
@@ -43,14 +43,14 @@ export async function loadSequenceFunctionCandidates(dbPath: string | undefined,
 	}
 }
 
-/** Builds `functionId`'s combined ancestry-plus-call-chain from the Project Graph at `dbPath` (../core/sequenceContext's `buildActiveFileSequenceContext`). `undefined` when `activeFileId`/`functionId` are no longer in the graph. */
+/** Builds `functionId`'s combined ancestry-plus-call-chain from the Atlas graph at `dbPath` (../core/sequenceContext's `buildActiveFileSequenceContext`). `undefined` when `activeFileId`/`functionId` are no longer in the graph. */
 export async function loadActiveFileSequenceContext(
 	dbPath: string | undefined,
 	activeFileId: string,
 	functionId: string,
 	options?: SequenceContextOptions
 ): Promise<SequenceContext | undefined> {
-	const store = await ProjectGraphStore.open({ filePath: dbPath });
+	const store = await AtlasStore.open({ filePath: dbPath });
 	try {
 		return buildActiveFileSequenceContext(store, activeFileId, functionId, options);
 	} finally {

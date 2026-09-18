@@ -1,5 +1,5 @@
 // Host-side data prep for the "Active File Flow" view (./activeFileFlowPanel):
-// resolves the active editor's file path to its Project Graph node id and
+// resolves the active editor's file path to its Atlas node id and
 // builds its flow via ../core/activeFileFlow. Kept free of any vscode
 // dependency, like ./architectureLayers and ./sequenceDiagram, so it can be
 // unit tested directly.

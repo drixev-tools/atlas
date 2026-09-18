@@ -1,8 +1,8 @@
 // Host-side data prep for the "Open Architecture" view's layered mode
-// (./graphPanel): aggregates the Project Graph into folder-derived groups
+// (./graphPanel): aggregates the Atlas graph into folder-derived groups
 // (../core/moduleAggregation) with metrics attached (../core/diagramMetrics),
 // resolves each group's display label — a Claude-generated name/description
-// when available, cached in the Project Graph Core (`ProjectGraphStore`'s
+// when available, cached in the Atlas Core (`AtlasStore`'s
 // `getLayerSummary`/`setLayerSummary`) and refreshed only when its member
 // file set actually changed, falling back to the plain folder name
 // otherwise. Kept free of any `vscode`/React Flow dependency, like
@@ -12,7 +12,7 @@ import { DiagramModel } from '../core/diagramModel';
 import { attachDiagramMetrics, computeDiagramMetrics } from '../core/diagramMetrics';
 import { EntryPoint, detectEntryPoints } from '../core/entryPoints';
 import { aggregateDiagramModelByFile, aggregateDiagramModelByFolder } from '../core/moduleAggregation';
-import { ProjectGraphStore, StoredGraph } from '../core/store';
+import { AtlasStore, StoredGraph } from '../core/store';
 import { LayerNamingResult, LayerNamingTarget } from '../design/layerNamingClient';
 
 /**
@@ -40,7 +40,7 @@ export interface ArchitectureLayerData {
 
 /** The folder/module-aggregated `DiagramModel` for the architecture view's default "layers" level, with metrics and entry-point group ids attached. */
 export function buildArchitectureLayerData(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	graph: StoredGraph,
 	rootDir: string | undefined,
 	changedFiles?: readonly string[]
@@ -68,7 +68,7 @@ export interface ArchitectureFileLevelData {
 
 /** The file-level `DiagramModel` for the architecture view's "files" drill-down into one group, restricted to `group`'s own member files, with metrics and entry-point file ids attached. */
 export function buildArchitectureFileLevelData(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	graph: StoredGraph,
 	group: ArchitectureLayerGroup,
 	changedFiles?: readonly string[]
@@ -85,7 +85,7 @@ export function buildArchitectureFileLevelData(
 
 /** The whole-project, ungrouped file-level `DiagramModel` for the architecture view's "Files" mode: every file in the graph as its own node, connected by its real import/calls/etc. edges, with no folder grouping at all — the flat counterpart to `buildArchitectureLayerData`'s default folder-collapsed view. */
 export function buildArchitectureFlatFileData(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	graph: StoredGraph,
 	changedFiles?: readonly string[]
 ): ArchitectureFileLevelData {
@@ -127,7 +127,7 @@ export interface ResolvedLayerLabels {
  * `staleGroups`, so the architecture view can render instantly with folder
  * names and upgrade them in place once Claude responds.
  */
-export function resolveCachedLayerLabels(store: ProjectGraphStore, groups: readonly ArchitectureLayerGroup[]): ResolvedLayerLabels {
+export function resolveCachedLayerLabels(store: AtlasStore, groups: readonly ArchitectureLayerGroup[]): ResolvedLayerLabels {
 	const labelsByGroupId = new Map<string, ArchitectureLayerLabel>();
 	const staleGroups: ArchitectureLayerGroup[] = [];
 
@@ -171,7 +171,7 @@ export function toLayerNamingTargets(graph: StoredGraph, groups: readonly Archit
  * an entry for keep whatever `resolveCachedLayerLabels` already gave them.
  */
 export function applyLayerNamingResults(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	groups: readonly ArchitectureLayerGroup[],
 	results: readonly LayerNamingResult[]
 ): Map<string, ArchitectureLayerLabel> {

@@ -167,32 +167,32 @@ function buildEdgeWhere(filter: EdgeFilter): { clause: string; params: BindParam
 }
 
 /**
- * Data-access layer over the Project Graph Core's SQLite database: CRUD for
+ * Data-access layer over the Atlas Core's SQLite database: CRUD for
  * nodes and edges plus the query helpers the renderer and the
  * Analyze/Explore/Impact commands need. Callers that only need an in-memory
  * graph for a single pipeline run can construct this
  * directly around any open `Database`; most callers should use `open`/
  * `save`/`close` to manage a database file across VS Code sessions.
  */
-export class ProjectGraphStore {
+export class AtlasStore {
 	private constructor(
 		private readonly db: Database,
 		private filePath: string | undefined
 	) {}
 
-	static async open(options: OpenDatabaseOptions = {}): Promise<ProjectGraphStore> {
+	static async open(options: OpenDatabaseOptions = {}): Promise<AtlasStore> {
 		const db = await openDatabase(options);
-		return new ProjectGraphStore(db, options.filePath);
+		return new AtlasStore(db, options.filePath);
 	}
 
-	static fromDatabase(db: Database): ProjectGraphStore {
-		return new ProjectGraphStore(db, undefined);
+	static fromDatabase(db: Database): AtlasStore {
+		return new AtlasStore(db, undefined);
 	}
 
 	/** Persists the current in-memory database to disk, since sql.js never writes to `filePath` on its own. */
 	save(filePath: string | undefined = this.filePath): void {
 		if (!filePath) {
-			throw new Error('ProjectGraphStore.save() requires a filePath, either passed here or to open().');
+			throw new Error('AtlasStore.save() requires a filePath, either passed here or to open().');
 		}
 		this.filePath = filePath;
 		saveDatabase(this.db, filePath);

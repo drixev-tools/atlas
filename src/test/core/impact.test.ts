@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { getStructuralConsumers, getStructuralConsumersForFile, getStructuralDependencies, getStructuralDependenciesForFile } from '../../core/impact';
 
 function makeFileNode(name: string): GraphNode {
@@ -13,10 +13,10 @@ function makeImportEdge(sourceName: string, targetName: string): GraphEdge {
 }
 
 suite('impact: structural dependencies/consumers', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 		// a.ts -> b.ts -> c.ts (import chain)
 		store.upsertNodes([makeFileNode('a.ts'), makeFileNode('b.ts'), makeFileNode('c.ts')]);
 		store.upsertEdges([makeImportEdge('a.ts', 'b.ts'), makeImportEdge('b.ts', 'c.ts')]);
@@ -68,7 +68,7 @@ suite('impact: structural dependencies/consumers', () => {
 	});
 
 	test('the *ForFile helpers resolve from a file path instead of a raw node id', async () => {
-		const fileStore = await ProjectGraphStore.open();
+		const fileStore = await AtlasStore.open();
 		try {
 			const resolvedFileNodeId = (filePath: string): string => `file:${path.resolve(filePath)}`;
 			const paths = { a: path.join('project', 'a.ts'), b: path.join('project', 'b.ts'), c: path.join('project', 'c.ts') };

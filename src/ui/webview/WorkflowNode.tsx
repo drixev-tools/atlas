@@ -1,4 +1,4 @@
-// Custom React Flow node renderer for a workflow-relevant Project Graph node
+// Custom React Flow node renderer for a workflow-relevant Atlas node
 // (Epic E's `file`/`class`/`method`/`function` kinds only). Styling
 // (background per `status`, border per `kind`) is driven entirely through
 // CSS classes in ./styles.css rather than inline styles, matching this

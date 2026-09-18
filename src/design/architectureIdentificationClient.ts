@@ -1,7 +1,7 @@
 // Claude integration for the "Identified Architecture" view: naming the
 // project's real software architecture pattern (layered, hexagonal, MVC,
 // ...) and assigning each already-aggregated folder module an architectural
-// role, from a summary of the real Project Graph
+// role, from a summary of the real Atlas
 // (../ui/identifiedArchitecture's folder groups and their relationships) —
 // never the source code itself. Batched into a single Claude call (tool use,
 // like ./layerNamingClient). Takes a narrow `ArchitectureIdentificationEntity`

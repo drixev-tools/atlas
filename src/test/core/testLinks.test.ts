@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { findRelatedTestFiles, isLikelyTestFilePath } from '../../core/testLinks';
 
 function fileNodeId(filePath: string): string {
@@ -40,10 +40,10 @@ suite('testLinks: isLikelyTestFilePath', () => {
 });
 
 suite('testLinks: findRelatedTestFiles', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

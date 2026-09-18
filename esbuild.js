@@ -32,7 +32,7 @@ async function main() {
 		sourcesContent: false,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		// sql.js (Epic 4, Project Graph Core) loads its .wasm binary from
+		// sql.js (Epic 4, Atlas Core) loads its .wasm binary from
 		// node_modules at runtime; bundling it would strip out that asset.
 		// Packaging it into the shipped extension is an Epic 12 concern.
 		external: ['vscode', 'sql.js'],

@@ -1,7 +1,7 @@
 // The active-file flow view's panel lifecycle and postMessage bridge
 // (contract in ./webview/activeFileFlowProtocol) — mirrors ./graphPanel's
 // singleton create-or-reveal shape, but as its own `WebviewPanel` (a
-// different diagram entirely from the Project Graph/Architecture view, not
+// different diagram entirely from the Architecture view, not
 // another mode of it) loading the same bundled React Flow script
 // (./webview/main.tsx picks the root component via `data-view`). There's no
 // picker: it tracks `vscode.window.onDidChangeActiveTextEditor` itself and
@@ -11,7 +11,7 @@ import * as vscode from 'vscode';
 import { buildDiagramModel } from '../core/diagramModel';
 import { diagramModelToMermaidFlowchart, toMermaidMarkdown } from '../core/diagramMermaid';
 import { ActiveFileFlow } from '../core/activeFileFlow';
-import { ProjectGraphStore } from '../core/store';
+import { AtlasStore } from '../core/store';
 import { buildActiveFileFlowViewData } from './activeFileFlow';
 import { ExportDestination, pickExportDestination, writeMarkdownExport, writePdfExportFromJpeg, writePngExport, writeSvgExport } from './diagramExport';
 import { ActiveFileFlowHostToWebviewMessage, ActiveFileFlowPayload, ActiveFileFlowWebviewToHostMessage } from './webview/activeFileFlowProtocol';
@@ -23,7 +23,7 @@ const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
 
 const NO_ACTIVE_FILE_MESSAGE = 'Open a file to see its flow.';
-const NOT_ANALYZED_MESSAGE = 'Atlas: this file isn\'t in the Project Graph yet. Run "Atlas: Analyze Workspace" first.';
+const NOT_ANALYZED_MESSAGE = 'Atlas: this file isn\'t in the graph yet. Run "Atlas: Analyze Workspace" first.';
 
 export class ActiveFileFlowPanel implements vscode.Disposable {
 	private static current: ActiveFileFlowPanel | undefined;
@@ -37,7 +37,7 @@ export class ActiveFileFlowPanel implements vscode.Disposable {
 	private constructor(
 		private readonly panel: vscode.WebviewPanel,
 		private readonly extensionUri: vscode.Uri,
-		private store: ProjectGraphStore,
+		private store: AtlasStore,
 		private activeFilePath: string | undefined
 	) {
 		this.panel.webview.html = this.renderHtml();
@@ -56,7 +56,7 @@ export class ActiveFileFlowPanel implements vscode.Disposable {
 	 * ownership of `store` (closes it on dispose/replacement), like
 	 * `GraphPanel.createOrShow`.
 	 */
-	static createOrShow(extensionUri: vscode.Uri, store: ProjectGraphStore, activeFilePath: string | undefined): ActiveFileFlowPanel {
+	static createOrShow(extensionUri: vscode.Uri, store: AtlasStore, activeFilePath: string | undefined): ActiveFileFlowPanel {
 		const column = vscode.window.activeTextEditor?.viewColumn;
 
 		if (ActiveFileFlowPanel.current) {
@@ -92,7 +92,7 @@ export class ActiveFileFlowPanel implements vscode.Disposable {
 		this.panel.dispose();
 	}
 
-	private replaceStore(store: ProjectGraphStore, activeFilePath: string | undefined): void {
+	private replaceStore(store: AtlasStore, activeFilePath: string | undefined): void {
 		if (store !== this.store) {
 			this.store.close();
 		}

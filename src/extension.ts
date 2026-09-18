@@ -9,7 +9,7 @@ import {
 	VsCodeClaudeSettingsStore
 } from './design';
 import { MementoUsageMetricsStore, UsageMetricEvent } from './core/metrics';
-import { ProjectGraphStore } from './core/store';
+import { AtlasStore } from './core/store';
 import {
 	ActiveFileFlowPanel,
 	ANALYZE_WORKSPACE_COMMAND,
@@ -23,7 +23,7 @@ import {
 	loadActiveFileSequenceContext,
 	loadSequenceFunctionCandidates,
 	OPEN_ARCHITECTURE_COMMAND,
-	ProjectGraphTreeProvider,
+	AtlasTreeProvider,
 	registerSettingsView,
 	registerSidebar,
 	resolveCachedIdentifiedArchitecture,
@@ -45,10 +45,10 @@ export {
 
 /**
  * Sidebar Panel's Tree View provider, refreshed after anything that changes
- * the Project Graph (currently just the Analyze Workspace command) so the
+ * the Atlas graph (currently just the Analyze Workspace command) so the
  * tree doesn't go stale. `undefined` until `activate()` registers it.
  */
-let sidebarTreeProvider: ProjectGraphTreeProvider | undefined;
+let sidebarTreeProvider: AtlasTreeProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
 	console.log('Atlas extension activated');
@@ -76,7 +76,7 @@ export function deactivate(): void {
 /**
  * "Atlas: Analyze Workspace" — the full-rebuild entry point: runs
  * both extraction pipelines over the first workspace folder and replaces the
- * Project Graph store with their combined output, reporting progress and
+ * Atlas store with their combined output, reporting progress and
  * completion/failure to the user. See `analyzeWorkspace` for the underlying,
  * `vscode`-free orchestration this wraps.
  */
@@ -128,7 +128,7 @@ async function runAnalyzeWorkspaceCommand(context: vscode.ExtensionContext): Pro
 async function openArchitecture(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'openArchitecture');
 
-	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const store = await AtlasStore.open({ filePath: resolveGraphDbPath(context) });
 	const claudeSettings = new VsCodeClaudeSettingsStore(new SecretStorageApiKeyStore(context.secrets));
 	GraphPanel.createOrShow(context.extensionUri, store, claudeSettings, (filePath) => {
 		void openActiveFileFlowForFile(context, filePath);
@@ -139,12 +139,12 @@ async function openArchitecture(context: vscode.ExtensionContext): Promise<void>
  * Opens ../ui/activeFileFlowPanel for a specific file path — how a file
  * card's click in the architecture view (`GraphPanel`'s
  * `architecture:openFileFlow`) reaches this panel. Opens its own
- * `ProjectGraphStore`, like `runShowActiveFileFlowCommand` does, since
+ * `AtlasStore`, like `runShowActiveFileFlowCommand` does, since
  * `ActiveFileFlowPanel` closes whatever store it's given on dispose and must
  * not share the architecture view's.
  */
 async function openActiveFileFlowForFile(context: vscode.ExtensionContext, filePath: string): Promise<void> {
-	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const store = await AtlasStore.open({ filePath: resolveGraphDbPath(context) });
 	ActiveFileFlowPanel.createOrShow(context.extensionUri, store, filePath);
 }
 
@@ -194,7 +194,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 
 	const sequenceContext = await loadActiveFileSequenceContext(dbPath, resolved.activeFileId, picked.candidate.id);
 	if (!sequenceContext) {
-		void vscode.window.showErrorMessage(`Atlas: "${picked.candidate.name}" is no longer in the Project Graph.`);
+		void vscode.window.showErrorMessage(`Atlas: "${picked.candidate.name}" is no longer in the graph.`);
 		return;
 	}
 
@@ -234,7 +234,7 @@ async function runShowSequenceDiagramCommand(context: vscode.ExtensionContext): 
 async function runShowActiveFileFlowCommand(context: vscode.ExtensionContext): Promise<void> {
 	recordUsage(context, 'showActiveFileFlow');
 
-	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const store = await AtlasStore.open({ filePath: resolveGraphDbPath(context) });
 	const activeEditor = vscode.window.activeTextEditor;
 	const activeFilePath = activeEditor?.document.uri.scheme === 'file' ? activeEditor.document.uri.fsPath : undefined;
 	ActiveFileFlowPanel.createOrShow(context.extensionUri, store, activeFilePath);
@@ -242,7 +242,7 @@ async function runShowActiveFileFlowCommand(context: vscode.ExtensionContext): P
 
 /**
  * "Show Identified Architecture" — asks Claude to name the project's real
- * architecture pattern from an aggregated summary of the Project Graph
+ * architecture pattern from an aggregated summary of the Atlas graph
  * (../ui/identifiedArchitecture), a second diagram entirely from "Open
  * Architecture", always AI-generated (there's no non-AI fallback content, so
  * a missing key or a failed call falls back to whatever's cached rather than
@@ -253,7 +253,7 @@ async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionCon
 	recordUsage(context, 'showIdentifiedArchitecture');
 
 	const rootDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	const store = await ProjectGraphStore.open({ filePath: resolveGraphDbPath(context) });
+	const store = await AtlasStore.open({ filePath: resolveGraphDbPath(context) });
 	const graph = store.getGraph();
 	const { groups, entityNodes, edges } = identifiedArchitectureEntities(store, graph, rootDir);
 	const entities = toArchitectureIdentificationEntities(graph, groups, edges);
@@ -307,7 +307,7 @@ async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionCon
 }
 
 /**
- * Where the Project Graph Core's SQLite file lives for the current
+ * Where the Atlas Core's SQLite file lives for the current
  * workspace: VS Code's per-workspace storage location, so the graph persists
  * across sessions without writing anything into the project folder itself.
  * Falls back to global storage, then to an in-memory-only store, when no
@@ -315,7 +315,7 @@ async function runShowIdentifiedArchitectureCommand(context: vscode.ExtensionCon
  */
 function resolveGraphDbPath(context: vscode.ExtensionContext): string | undefined {
 	const storageUri = context.storageUri ?? context.globalStorageUri;
-	return storageUri ? path.join(storageUri.fsPath, 'project-graph.db') : undefined;
+	return storageUri ? path.join(storageUri.fsPath, 'atlas.db') : undefined;
 }
 
 /**

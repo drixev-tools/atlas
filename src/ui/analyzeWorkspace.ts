@@ -1,5 +1,5 @@
-import { populateProjectGraph } from '../core/populate';
-import { ProjectGraphStore } from '../core/store';
+import { populateAtlas } from '../core/populate';
+import { AtlasStore } from '../core/store';
 import { runPythonPipeline } from '../pipelines/python';
 import { runTsPipeline } from '../pipelines/ts';
 
@@ -8,7 +8,7 @@ export const ANALYZE_WORKSPACE_COMMAND = 'atlas.analyzeWorkspace';
 export interface AnalyzeWorkspaceOptions {
 	/** Workspace folder to run both extraction pipelines over. */
 	rootDir: string;
-	/** Where to persist the resulting Project Graph. Left in-memory-only when omitted (e.g. tests). */
+	/** Where to persist the resulting Atlas. Left in-memory-only when omitted (e.g. tests). */
 	dbPath?: string;
 	/** Reports each stage of the analysis, e.g. for a `vscode.window.withProgress` notification. */
 	onProgress?: (message: string) => void;
@@ -21,9 +21,9 @@ export interface AnalyzeWorkspaceResult {
 
 /**
  * Runs the TS/JS and Python extraction pipelines over `rootDir` and replaces
- * the Project Graph store's contents with their combined, de-duplicated
- * output (see `populateProjectGraph`). This is the full-rebuild counterpart
- * to the incremental updates `ProjectGraphWatcher` applies as files change,
+ * the Atlas store's contents with their combined, de-duplicated
+ * output (see `populateAtlas`). This is the full-rebuild counterpart
+ * to the incremental updates `AtlasWatcher` applies as files change,
  * and is what the "Atlas: Analyze Workspace" command runs.
  *
  * Kept free of any `vscode` dependency so it can be exercised directly in
@@ -40,10 +40,10 @@ export async function analyzeWorkspace(options: AnalyzeWorkspaceOptions): Promis
 	onProgress?.('Extracting Python...');
 	const pythonGraph = await runPythonPipeline(rootDir);
 
-	onProgress?.('Updating Project Graph...');
-	const store = await ProjectGraphStore.open({ filePath: dbPath });
+	onProgress?.('Updating Atlas graph...');
+	const store = await AtlasStore.open({ filePath: dbPath });
 	try {
-		populateProjectGraph(store, [tsGraph, pythonGraph]);
+		populateAtlas(store, [tsGraph, pythonGraph]);
 		if (dbPath) {
 			store.save(dbPath);
 		}

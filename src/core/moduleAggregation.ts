@@ -2,7 +2,7 @@
 // it contains) into the folder it lives under, up to a configurable depth,
 // for the layered-architecture view and diagram export planned for Fase
 // 1.3. Built directly from a `StoredGraph`, like ./diagramModel, so it never
-// depends on a live `ProjectGraphStore` or on React Flow.
+// depends on a live `AtlasStore` or on React Flow.
 import * as path from 'path';
 import { DiagramModel, DiagramModelResult, DiagramNode, aggregateEdgesByEndpoint } from './diagramModel';
 import { StoredGraph, StoredNode } from './store';

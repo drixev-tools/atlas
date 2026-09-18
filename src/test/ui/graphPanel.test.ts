@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { OPEN_ARCHITECTURE_COMMAND } from '../../extension';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { GraphPanel } from '../../ui/graphPanel';
 
 function extensionUri(): vscode.Uri {
@@ -28,7 +28,7 @@ async function findTabByLabel(label: string, timeoutMs = 2000): Promise<vscode.T
 
 suite('GraphPanel', () => {
 	test('renders a webview wired to the bundled React Flow script and stylesheet, with a matching CSP nonce', async () => {
-		const store = await ProjectGraphStore.open();
+		const store = await AtlasStore.open();
 		const panel = GraphPanel.createOrShow(extensionUri(), store);
 		try {
 			const html = panel.webview.html;
@@ -59,10 +59,10 @@ suite('GraphPanel', () => {
 	});
 
 	test('reopening while already open reveals and refreshes the same panel instead of creating a second one', async () => {
-		const store = await ProjectGraphStore.open();
+		const store = await AtlasStore.open();
 		const panel = GraphPanel.createOrShow(extensionUri(), store);
 		try {
-			const again = GraphPanel.createOrShow(extensionUri(), await ProjectGraphStore.open());
+			const again = GraphPanel.createOrShow(extensionUri(), await AtlasStore.open());
 			assert.strictEqual(again, panel);
 
 			const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((t) => t.label === 'Atlas');

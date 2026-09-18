@@ -1,13 +1,13 @@
 // Per-node metrics for a `DiagramModel` (size, fan-in/fan-out, external
 // dependencies, linked tests, and git status), computed against the same
 // `StoredGraph` a `DiagramModelResult` (./diagramModel, ./moduleAggregation)
-// was built from, plus the live `ProjectGraphStore` `findRelatedTestFiles`
+// was built from, plus the live `AtlasStore` `findRelatedTestFiles`
 // (./testLinks) needs to walk `imports` edges. Works the same for a
 // per-file model and a folder/module-aggregated one: the only thing a node
 // needs to receive metrics is an entry in `filePathsByNodeId`.
 import * as path from 'path';
 import { DiagramExternalDependency, DiagramMetrics, DiagramModel, DiagramNodeFilePaths } from './diagramModel';
-import { ProjectGraphStore, StoredGraph } from './store';
+import { AtlasStore, StoredGraph } from './store';
 import { findRelatedTestFiles } from './testLinks';
 
 export interface ComputeDiagramMetricsOptions {
@@ -73,7 +73,7 @@ function externalDependenciesForMembers(graph: StoredGraph, memberNodeIds: Reado
  * against `options.changedFiles`.
  */
 export function computeDiagramMetrics(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	graph: StoredGraph,
 	model: DiagramModel,
 	filePathsByNodeId: DiagramNodeFilePaths,

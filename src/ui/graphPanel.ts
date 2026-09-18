@@ -1,6 +1,6 @@
-// The Project Graph's visual panel. Owns only the panel lifecycle and the
+// The Atlas's visual panel. Owns only the panel lifecycle and the
 // postMessage bridge (contract in `./webview/protocol`); the actual
-// node/edge data comes from `ProjectGraphStore`, collapsed to the workflow-
+// node/edge data comes from `AtlasStore`, collapsed to the workflow-
 // relevant hierarchy by `filterGraphForWorkflow` for the symbol-level view,
 // and to the folder/module-aggregated architecture view's data by
 // `./architectureLayers` (which this panel also asks, on demand, for a
@@ -10,7 +10,7 @@
 import * as vscode from 'vscode';
 import { buildDiagramModel } from '../core/diagramModel';
 import { diagramModelToMermaidFlowchart, toMermaidMarkdown } from '../core/diagramMermaid';
-import { ProjectGraphStore, StoredGraph } from '../core/store';
+import { AtlasStore, StoredGraph } from '../core/store';
 import { AnthropicClaudeLayerNamingClient, AuthenticationError, ClaudeSettingsStore, resolveClaudeSettings } from '../design';
 import {
 	ArchitectureLayerGroup,
@@ -35,7 +35,7 @@ const WEBVIEW_SCRIPT_PATH = ['dist', 'ui', 'webview', 'main.js'];
 const WEBVIEW_STYLE_PATH = ['dist', 'ui', 'webview', 'main.css'];
 
 /**
- * Single React Flow webview panel for the workspace's Project Graph.
+ * Single React Flow webview panel for the workspace's Atlas.
  */
 export class GraphPanel implements vscode.Disposable {
 	private static current: GraphPanel | undefined;
@@ -52,7 +52,7 @@ export class GraphPanel implements vscode.Disposable {
 	private constructor(
 		private readonly panel: vscode.WebviewPanel,
 		private readonly extensionUri: vscode.Uri,
-		private store: ProjectGraphStore,
+		private store: AtlasStore,
 		private readonly claudeSettings: ClaudeSettingsStore | undefined,
 		private readonly openActiveFileFlow: ((filePath: string) => void) | undefined
 	) {
@@ -74,12 +74,12 @@ export class GraphPanel implements vscode.Disposable {
 	 * `GraphPanel` tests do) to keep the view on folder names only.
 	 * `openActiveFileFlow`, when given, opens ./activeFileFlowPanel's separate
 	 * panel for a file path — how a file card's click (`architecture:openFileFlow`)
-	 * is fulfilled, since that panel owns its own `ProjectGraphStore` and must
+	 * is fulfilled, since that panel owns its own `AtlasStore` and must
 	 * not share this one.
 	 */
 	static createOrShow(
 		extensionUri: vscode.Uri,
-		store: ProjectGraphStore,
+		store: AtlasStore,
 		claudeSettings?: ClaudeSettingsStore,
 		openActiveFileFlow?: (filePath: string) => void
 	): GraphPanel {
@@ -123,7 +123,7 @@ export class GraphPanel implements vscode.Disposable {
 		this.panel.dispose();
 	}
 
-	private replaceStore(store: ProjectGraphStore): void {
+	private replaceStore(store: AtlasStore): void {
 		if (store !== this.store) {
 			this.store.close();
 		}
@@ -262,7 +262,7 @@ export class GraphPanel implements vscode.Disposable {
 
 	/** Shows the save dialog for "Export" and, for `markdown`, writes it immediately from data already on hand; `svg`/`png`/`pdf` need the webview's own rendered view, so those ask it to capture (`graph:exportCapture`) and wait for `graph:exportCaptured`. */
 	private async handleExportRequest(view: GraphExportView): Promise<void> {
-		const destination = await pickExportDestination('project-graph');
+		const destination = await pickExportDestination('atlas');
 		if (!destination) {
 			return;
 		}

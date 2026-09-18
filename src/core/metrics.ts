@@ -21,7 +21,7 @@ export type UsageMetrics = Partial<Record<UsageMetricEvent, number>>;
 
 /**
  * Narrowed to an interface — separate from the concrete
- * `MementoUsageMetricsStore` — so tests and callers like `ProjectGraphWatcher`
+ * `MementoUsageMetricsStore` — so tests and callers like `AtlasWatcher`
  * can supply an in-memory fake, matching `ApiKeyStore` (../design/apiKey).
  */
 export interface UsageMetricsStore {

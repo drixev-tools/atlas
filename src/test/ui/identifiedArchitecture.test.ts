@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
 import { DiagramEdge, DiagramNode } from '../../core/diagramModel';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import {
 	applyArchitectureIdentification,
 	buildIdentifiedArchitectureModel,
@@ -228,10 +228,10 @@ suite('buildIdentifiedArchitectureModel', () => {
 });
 
 suite('identifiedArchitectureEntities / toArchitectureIdentificationEntities', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -284,7 +284,7 @@ suite('hashArchitectureIdentificationEntities', () => {
 });
 
 suite('resolveCachedIdentifiedArchitecture / applyArchitectureIdentification', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	const entityNodes: DiagramNode[] = [{ id: 'group:controllers', kind: 'group', label: 'controllers' }];
 	const entities = [{ groupId: 'group:controllers', label: 'controllers', fileNames: ['a.ts'], symbolCount: 0, dependsOn: [], dependedOnBy: [] }];
@@ -296,7 +296,7 @@ suite('resolveCachedIdentifiedArchitecture / applyArchitectureIdentification', (
 	};
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

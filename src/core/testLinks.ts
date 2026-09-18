@@ -8,7 +8,7 @@
 // directly (e.g. through a CLI entry point or test runner discovery).
 import * as path from 'path';
 import { getStructuralConsumersForFile } from './impact';
-import { ProjectGraphStore } from './store';
+import { AtlasStore } from './store';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -42,7 +42,7 @@ function candidateTestBaseNames(baseNameNoExt: string): Set<string> {
  * named like a test with any other project file whose name pairs with
  * `filePath`'s own base name by convention.
  */
-export function findRelatedTestFiles(store: ProjectGraphStore, filePath: string): string[] {
+export function findRelatedTestFiles(store: AtlasStore, filePath: string): string[] {
 	if (isLikelyTestFilePath(filePath)) {
 		return [];
 	}

@@ -14,7 +14,7 @@ export const GRAPH_STATUSES: readonly GraphStatus[] = ['matched', 'proposed_only
 export const DEFAULT_GRAPH_STATUS: GraphStatus = 'observed_only';
 
 /**
- * Schema for the Project Graph Core. A single `nodes`/`edges` pair holds the
+ * Schema for the Atlas Core. A single `nodes`/`edges` pair holds the
  * whole workspace graph, keyed by the same ids the pipelines already assign
  * (see each pipeline's normalize.ts), so upserts from repeated extraction
  * runs (full or incremental) collapse onto the same rows.

@@ -2,8 +2,8 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { populateProjectGraph } from '../../core/populate';
-import { ProjectGraphStore } from '../../core/store';
+import { populateAtlas } from '../../core/populate';
+import { AtlasStore } from '../../core/store';
 import { runTsPipeline } from '../../pipelines/ts';
 import { runPythonPipeline } from '../../pipelines/python';
 
@@ -14,15 +14,15 @@ function writeFile(dir: string, name: string, contents: string): string {
 	return filePath;
 }
 
-suite('populateProjectGraph: both pipelines', () => {
+suite('populateAtlas: both pipelines', () => {
 	let tsDir: string;
 	let pyDir: string;
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
 		tsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-populate-ts-'));
 		pyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-populate-py-'));
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -38,7 +38,7 @@ suite('populateProjectGraph: both pipelines', () => {
 		const tsGraph = runTsPipeline(tsDir);
 		const pythonGraph = await runPythonPipeline(pyDir);
 
-		populateProjectGraph(store, [tsGraph, pythonGraph]);
+		populateAtlas(store, [tsGraph, pythonGraph]);
 
 		const tsAdd = store.listNodes({ kind: 'function' }).find((n) => n.name === 'add' && n.filePath?.endsWith('math.ts'));
 		const pyAdd = store.listNodes({ kind: 'function' }).find((n) => n.name === 'add' && n.filePath?.endsWith('math_utils.py'));
@@ -57,8 +57,8 @@ suite('populateProjectGraph: both pipelines', () => {
 		writeFile(tsDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 		const tsGraph = runTsPipeline(tsDir);
 
-		populateProjectGraph(store, [tsGraph]);
-		populateProjectGraph(store, [tsGraph]);
+		populateAtlas(store, [tsGraph]);
+		populateAtlas(store, [tsGraph]);
 
 		assert.strictEqual(store.getGraph().nodes.length, tsGraph.nodes.length);
 	});
@@ -67,7 +67,7 @@ suite('populateProjectGraph: both pipelines', () => {
 		writeFile(tsDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 		const tsGraph = runTsPipeline(tsDir);
 
-		populateProjectGraph(store, [tsGraph], { status: 'proposed_only' });
+		populateAtlas(store, [tsGraph], { status: 'proposed_only' });
 
 		for (const node of store.getGraph().nodes) {
 			assert.strictEqual(node.status, 'proposed_only');

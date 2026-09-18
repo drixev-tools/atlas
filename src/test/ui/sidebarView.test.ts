@@ -10,10 +10,10 @@ import { SHOW_IDENTIFIED_ARCHITECTURE_COMMAND } from '../../ui/identifiedArchite
 import { SHOW_SEQUENCE_DIAGRAM_COMMAND } from '../../ui/sequenceDiagram';
 import { StoredNode } from '../../core/store';
 import {
-	ProjectGraphTreeProvider,
+	AtlasTreeProvider,
 	REFRESH_SIDEBAR_COMMAND,
 	SELECT_SIDEBAR_NODE_COMMAND,
-	selectProjectGraphNode
+	selectAtlasNode
 } from '../../ui/sidebarView';
 
 function writeFile(dir: string, name: string, contents: string): string {
@@ -30,13 +30,13 @@ suite('Sidebar Panel', () => {
 		assert.ok(commands.includes(SELECT_SIDEBAR_NODE_COMMAND));
 	});
 
-	suite('ProjectGraphTreeProvider', () => {
+	suite('AtlasTreeProvider', () => {
 		let tmpDir: string;
 		let dbPath: string;
 
 		setup(() => {
 			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sidebar-'));
-			dbPath = path.join(tmpDir, 'project-graph.db');
+			dbPath = path.join(tmpDir, 'atlas.db');
 		});
 
 		teardown(() => {
@@ -47,7 +47,7 @@ suite('Sidebar Panel', () => {
 			writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 			await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-			const provider = new ProjectGraphTreeProvider({ rootDir: tmpDir, dbPath });
+			const provider = new AtlasTreeProvider({ rootDir: tmpDir, dbPath });
 			try {
 				await provider.refresh();
 				const children = provider.getChildren();
@@ -79,7 +79,7 @@ suite('Sidebar Panel', () => {
 			const mathPath = writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 			await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-			const provider = new ProjectGraphTreeProvider({ rootDir: tmpDir, dbPath });
+			const provider = new AtlasTreeProvider({ rootDir: tmpDir, dbPath });
 			try {
 				await provider.refresh();
 				const [, , , , , fileElement] = provider.getChildren();
@@ -98,7 +98,7 @@ suite('Sidebar Panel', () => {
 		});
 
 		test('refresh() re-reads the database file instead of a stale in-memory snapshot', async () => {
-			const provider = new ProjectGraphTreeProvider({ rootDir: tmpDir, dbPath });
+			const provider = new AtlasTreeProvider({ rootDir: tmpDir, dbPath });
 			try {
 				await provider.refresh();
 				assert.deepStrictEqual(provider.getChildren().length, 5, 'only the 5 shortcuts before anything is analyzed');
@@ -114,7 +114,7 @@ suite('Sidebar Panel', () => {
 		});
 	});
 
-	suite('selectProjectGraphNode', () => {
+	suite('selectAtlasNode', () => {
 		let tmpDir: string;
 
 		setup(() => {
@@ -140,7 +140,7 @@ suite('Sidebar Panel', () => {
 				status: 'observed_only'
 			};
 
-			await selectProjectGraphNode(node);
+			await selectAtlasNode(node);
 
 			const editor = vscode.window.activeTextEditor;
 			assert.ok(editor, 'expected a text editor to open');
@@ -153,7 +153,7 @@ suite('Sidebar Panel', () => {
 			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 			const node: StoredNode = { id: 'symbol:value', kind: 'variable', name: 'value', status: 'observed_only' };
 
-			await assert.doesNotReject(selectProjectGraphNode(node));
+			await assert.doesNotReject(selectAtlasNode(node));
 
 			assert.strictEqual(vscode.window.activeTextEditor, undefined);
 		});

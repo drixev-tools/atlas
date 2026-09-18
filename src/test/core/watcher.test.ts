@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { languageForFile } from '../../core/watcher';
 
-suite('ProjectGraphWatcher: language routing', () => {
+suite('AtlasWatcher: language routing', () => {
 	test('routes TS/JS extensions to the TS pipeline', () => {
 		for (const name of ['index.ts', 'component.tsx', 'script.js', 'component.jsx']) {
 			assert.strictEqual(languageForFile(path.join('/project', name)), 'ts', name);

@@ -4,7 +4,7 @@
 // `GraphPanel` (./graphPanel) is currently open.
 import * as vscode from 'vscode';
 import { NodeKind } from '../pipelines/model';
-import { ProjectGraphStore, StoredNode } from '../core/store';
+import { AtlasStore, StoredNode } from '../core/store';
 import { ANALYZE_WORKSPACE_COMMAND } from './analyzeWorkspace';
 import { OPEN_ARCHITECTURE_COMMAND } from './architecture';
 import { SHOW_ACTIVE_FILE_FLOW_COMMAND } from './activeFileFlow';
@@ -49,24 +49,24 @@ const ICON_BY_NODE_KIND: Record<NodeKind, string> = {
 };
 
 export interface SidebarOptions {
-	/** Workspace folder the Project Graph was built from, used to display file paths relative to it. Undefined when no folder is open. */
+	/** Workspace folder the Atlas graph was built from, used to display file paths relative to it. Undefined when no folder is open. */
 	rootDir: string | undefined;
-	/** Project Graph database to read. Left in-memory-only (an always-empty tree) when omitted, matching the other commands' `dbPath` handling. */
+	/** Atlas database to read. Left in-memory-only (an always-empty tree) when omitted, matching the other commands' `dbPath` handling. */
 	dbPath: string | undefined;
 }
 
 /**
- * `TreeDataProvider` backing the sidebar. Holds its own `ProjectGraphStore`
+ * `TreeDataProvider` backing the sidebar. Holds its own `AtlasStore`
  * handle, separate from any command's own: sql.js is an in-memory database
  * loaded from and saved back to `dbPath` on each open/save (see
  * `core/database.ts`), not a shared connection, so seeing another command's
  * writes means reopening the file, not just re-querying.
  */
-export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeElement>, vscode.Disposable {
+export class AtlasTreeProvider implements vscode.TreeDataProvider<TreeElement>, vscode.Disposable {
 	private readonly changeEmitter = new vscode.EventEmitter<void>();
 	readonly onDidChangeTreeData = this.changeEmitter.event;
 
-	private store: ProjectGraphStore | undefined;
+	private store: AtlasStore | undefined;
 	private tree: SidebarTreeNode[] = [];
 
 	constructor(private readonly options: SidebarOptions) {}
@@ -76,9 +76,9 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
 		this.store?.close();
 	}
 
-	/** Reopens the Project Graph Core from disk and rebuilds the tree. */
+	/** Reopens the Atlas Core from disk and rebuilds the tree. */
 	async refresh(): Promise<void> {
-		const nextStore = await ProjectGraphStore.open({ filePath: this.options.dbPath });
+		const nextStore = await AtlasStore.open({ filePath: this.options.dbPath });
 		this.store?.close();
 		this.store = nextStore;
 		this.tree = buildProjectFileTree(nextStore.getGraph(), this.options.rootDir);
@@ -143,7 +143,7 @@ export class ProjectGraphTreeProvider implements vscode.TreeDataProvider<TreeEle
  * its own graph updates. Opening the file is a no-op for a node with no
  * `filePath` (e.g. an external module); the graph panel sync still runs.
  */
-export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
+export async function selectAtlasNode(node: StoredNode): Promise<void> {
 	if (node.filePath) {
 		const document = await vscode.workspace.openTextDocument(node.filePath);
 		const selection = node.range
@@ -159,8 +159,8 @@ export async function selectProjectGraphNode(node: StoredNode): Promise<void> {
 	GraphPanel.selectNode(node.id);
 }
 
-export function registerSidebar(context: vscode.ExtensionContext, options: SidebarOptions): ProjectGraphTreeProvider {
-	const provider = new ProjectGraphTreeProvider(options);
+export function registerSidebar(context: vscode.ExtensionContext, options: SidebarOptions): AtlasTreeProvider {
+	const provider = new AtlasTreeProvider(options);
 	const treeView = vscode.window.createTreeView(SIDEBAR_VIEW_ID, {
 		treeDataProvider: provider,
 		showCollapseAll: true
@@ -169,7 +169,7 @@ export function registerSidebar(context: vscode.ExtensionContext, options: Sideb
 	context.subscriptions.push(
 		provider,
 		treeView,
-		vscode.commands.registerCommand(SELECT_SIDEBAR_NODE_COMMAND, selectProjectGraphNode),
+		vscode.commands.registerCommand(SELECT_SIDEBAR_NODE_COMMAND, selectAtlasNode),
 		vscode.commands.registerCommand(REFRESH_SIDEBAR_COMMAND, () => provider.refresh())
 	);
 

@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { buildDiagramModel } from '../../core/diagramModel';
 import { computeDiagramMetrics, attachDiagramMetrics } from '../../core/diagramMetrics';
 
@@ -22,10 +22,10 @@ function makeEdge(id: string, kind: GraphEdge['kind'], source: string, target: s
 }
 
 suite('computeDiagramMetrics', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

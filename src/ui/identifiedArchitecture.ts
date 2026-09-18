@@ -3,15 +3,15 @@
 // Architecture" (../architectureLayers) where Claude names the project's real
 // architecture pattern and assigns each real folder module an architectural
 // role, regrouping those same modules under role groups instead of their
-// folder. Cached in the Project Graph Core like
-// ../architectureLayers' layer labels (`ProjectGraphStore`'s
+// folder. Cached in the Atlas Core like
+// ../architectureLayers' layer labels (`AtlasStore`'s
 // `getIdentifiedArchitecture`/`setIdentifiedArchitecture`), refreshed only
 // when the underlying module set actually changed. Kept free of any
 // `vscode`/React Flow dependency, like ../architectureLayers, so it can be
 // unit tested directly.
 import * as crypto from 'crypto';
 import { DiagramEdge, DiagramEdgeKindCount, DiagramModel, DiagramNode } from '../core/diagramModel';
-import { ProjectGraphStore, StoredGraph } from '../core/store';
+import { AtlasStore, StoredGraph } from '../core/store';
 import { EdgeKind } from '../pipelines/model';
 import { ArchitectureIdentification, ArchitectureIdentificationEntity, ArchitectureIdentificationRelation } from '../design/architectureIdentificationClient';
 import { ArchitectureLayerGroup, buildArchitectureLayerData } from './architectureLayers';
@@ -32,7 +32,7 @@ export interface IdentifiedArchitectureEntities {
  * usually few of them and they rarely carry architectural signal on their
  * own, matching ../architectureLayers' own `toLayerNamingTargets` scope.
  */
-export function identifiedArchitectureEntities(store: ProjectGraphStore, graph: StoredGraph, rootDir: string | undefined): IdentifiedArchitectureEntities {
+export function identifiedArchitectureEntities(store: AtlasStore, graph: StoredGraph, rootDir: string | undefined): IdentifiedArchitectureEntities {
 	const { model, groups } = buildArchitectureLayerData(store, graph, rootDir);
 	const groupIds = new Set(groups.map((group) => group.groupId));
 	return { groups, entityNodes: model.nodes.filter((node) => groupIds.has(node.id)), edges: model.edges };
@@ -108,7 +108,7 @@ interface IdentificationLike {
 
 /**
  * Converts Claude's `identify_architecture` response (or the cached
- * equivalent from `ProjectGraphStore.getIdentifiedArchitecture`) into a
+ * equivalent from `AtlasStore.getIdentifiedArchitecture`) into a
  * `DiagramModel` rooted at one group per distinct role, each containing the
  * real modules (`entityNodes`) assigned to it, regrouping existing nodes by
  * an assigned role instead of their folder. An assignment naming an unknown
@@ -248,7 +248,7 @@ export interface ResolvedIdentifiedArchitecture {
 
 /** The cached identification for `entities`, converted straight to a `DiagramModel` for an instant render, or `undefined` when nothing has ever been cached — the caller then shows a loading/needs-configuration state instead. Never calls Claude itself. */
 export function resolveCachedIdentifiedArchitecture(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	entityNodes: readonly DiagramNode[],
 	edges: readonly DiagramEdge[],
 	entities: readonly ArchitectureIdentificationEntity[]
@@ -265,7 +265,7 @@ export function resolveCachedIdentifiedArchitecture(
 
 /** Persists a fresh Claude identification into the cache and returns the `DiagramModel` a caller should push to an already-open view. */
 export function applyArchitectureIdentification(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	entityNodes: readonly DiagramNode[],
 	edges: readonly DiagramEdge[],
 	entities: readonly ArchitectureIdentificationEntity[],

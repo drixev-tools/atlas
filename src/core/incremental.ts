@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { CodeGraph } from '../pipelines/model';
 import { DEFAULT_GRAPH_STATUS, GraphStatus } from './schema';
-import { ProjectGraphStore } from './store';
+import { AtlasStore } from './store';
 
 /**
  * Both pipelines id a file node as `file:${path.resolve(filePath)}` (see
@@ -24,7 +24,7 @@ function fileNodeId(filePath: string): string {
  * still resolve to their file node instead of collapsing into an
  * external-module node just because those siblings aren't being re-parsed.
  */
-export function knownProjectFiles(store: ProjectGraphStore): string[] {
+export function knownProjectFiles(store: AtlasStore): string[] {
 	return store
 		.listNodes({ kind: 'file' })
 		.map((node) => node.filePath)
@@ -36,7 +36,7 @@ export interface ApplyFileGraphOptions {
 }
 
 /**
- * Replaces one file's slice of the Project Graph with a freshly
+ * Replaces one file's slice of the Atlas graph with a freshly
  * (re-)extracted `CodeGraph` for that file alone, without touching any other
  * file's nodes/edges and without re-running the rest of the pipeline. Used
  * for both a newly created file and a modified one.
@@ -50,7 +50,7 @@ export interface ApplyFileGraphOptions {
  * removed (see `removeFileGraph`) and are otherwise that other file's to own.
  */
 export function applyFileGraph(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	filePath: string,
 	graph: CodeGraph,
 	options: ApplyFileGraphOptions = {}
@@ -94,7 +94,7 @@ export function applyFileGraph(
  * are left behind; re-resolving those other files' imports against whatever
  * replaces this file, if anything, happens the next time they're re-parsed.
  */
-export function removeFileGraph(store: ProjectGraphStore, filePath: string): void {
+export function removeFileGraph(store: AtlasStore, filePath: string): void {
 	const existingFileNode = store.getNode(fileNodeId(filePath));
 	if (!existingFileNode) {
 		return;

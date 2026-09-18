@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import {
 	applyLayerNamingResults,
 	buildArchitectureFileLevelData,
@@ -28,10 +28,10 @@ function edge(id: string, kind: GraphEdge['kind'], source: string, target: strin
 }
 
 suite('buildArchitectureLayerData', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -69,10 +69,10 @@ suite('buildArchitectureLayerData', () => {
 });
 
 suite('buildArchitectureFileLevelData', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -93,10 +93,10 @@ suite('buildArchitectureFileLevelData', () => {
 });
 
 suite('buildArchitectureFlatFileData', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -141,10 +141,10 @@ suite('hashMemberFilePaths', () => {
 });
 
 suite('resolveCachedLayerLabels', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -181,10 +181,10 @@ suite('resolveCachedLayerLabels', () => {
 });
 
 suite('toLayerNamingTargets', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -204,10 +204,10 @@ suite('toLayerNamingTargets', () => {
 });
 
 suite('applyLayerNamingResults', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

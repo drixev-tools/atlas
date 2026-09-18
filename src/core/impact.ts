@@ -1,9 +1,9 @@
-// Structural impact analysis over the Project Graph Core: given a node (or
+// Structural impact analysis over the Atlas Core: given a node (or
 // file), what it depends on and what depends on it, computed purely from the
 // `imports` edges the extraction pipelines already produce. ./testLinks uses
 // `getStructuralConsumersForFile` to find tests that reach a file indirectly.
 import * as path from 'path';
-import { ProjectGraphStore, StoredNode } from './store';
+import { AtlasStore, StoredNode } from './store';
 
 function fileNodeId(filePath: string): string {
 	return `file:${path.resolve(filePath)}`;
@@ -19,7 +19,7 @@ export interface StructuralImpactOptions {
  * outgoing `imports` edges, transitively. `nodeId` itself is never included.
  */
 export function getStructuralDependencies(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	nodeId: string,
 	options: StructuralImpactOptions = {}
 ): StoredNode[] {
@@ -32,7 +32,7 @@ export function getStructuralDependencies(
  * `nodeId` itself is never included.
  */
 export function getStructuralConsumers(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	nodeId: string,
 	options: StructuralImpactOptions = {}
 ): StoredNode[] {
@@ -41,7 +41,7 @@ export function getStructuralConsumers(
 
 /** `getStructuralDependencies`, starting from a file path instead of a raw node id. */
 export function getStructuralDependenciesForFile(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	filePath: string,
 	options: StructuralImpactOptions = {}
 ): StoredNode[] {
@@ -50,7 +50,7 @@ export function getStructuralDependenciesForFile(
 
 /** `getStructuralConsumers`, starting from a file path instead of a raw node id. */
 export function getStructuralConsumersForFile(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	filePath: string,
 	options: StructuralImpactOptions = {}
 ): StoredNode[] {
@@ -58,7 +58,7 @@ export function getStructuralConsumersForFile(
 }
 
 function traverseImports(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	startId: string,
 	direction: 'out' | 'in',
 	options: StructuralImpactOptions

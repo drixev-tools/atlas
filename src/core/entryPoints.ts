@@ -1,4 +1,4 @@
-// Best-effort entry-point detection over the Project Graph: the handful of
+// Best-effort entry-point detection over the Atlas graph: the handful of
 // places execution is known to start from outside the graph itself rather
 // than from another function's call, for the flow view's starting-point
 // picker and the architecture view's entry-point badges planned for Fase
@@ -6,7 +6,7 @@
 // already produce — nothing is inferred from source constructs the
 // pipelines don't parse (e.g. decorators), the same "never guessed" rule
 // Epic L applies to unresolvable Python relations.
-import { ProjectGraphStore, StoredNode } from './store';
+import { AtlasStore, StoredNode } from './store';
 
 export type EntryPointKind = 'activate' | 'command' | 'main' | 'httpRoute';
 
@@ -38,7 +38,7 @@ function isFunctionLike(node: StoredNode): boolean {
  * - `httpRoute`: a method named after an HTTP verb (`get`, `post`, ...), a
  *   naming convention several web frameworks' route handlers share.
  */
-export function detectEntryPoints(store: ProjectGraphStore): EntryPoint[] {
+export function detectEntryPoints(store: AtlasStore): EntryPoint[] {
 	const entryPoints: EntryPoint[] = [];
 	const seenKeys = new Set<string>();
 

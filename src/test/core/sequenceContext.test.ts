@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { buildActiveFileSequenceContext, buildSequenceContext, listSequenceFunctionCandidates } from '../../core/sequenceContext';
 
 function fileNode(id: string, filePath: string): GraphNode {
@@ -37,10 +37,10 @@ function importsEdge(id: string, sourceId: string, targetId: string): GraphEdge 
 }
 
 suite('buildSequenceContext', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -256,10 +256,10 @@ suite('buildSequenceContext', () => {
 });
 
 suite('listSequenceFunctionCandidates', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -295,10 +295,10 @@ suite('listSequenceFunctionCandidates', () => {
 });
 
 suite('buildActiveFileSequenceContext', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

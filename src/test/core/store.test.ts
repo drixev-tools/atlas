@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 
 function makeFileNode(id: string, name: string): GraphNode {
 	return { id, kind: 'file', name, filePath: `/project/${name}`, language: 'typescript' };
@@ -25,11 +25,11 @@ function makeContainsEdge(id: string, source: string, target: string): GraphEdge
 	return { id, kind: 'contains', source, target };
 }
 
-suite('ProjectGraphStore: CRUD', () => {
-	let store: ProjectGraphStore;
+suite('AtlasStore: CRUD', () => {
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {
@@ -194,7 +194,7 @@ suite('ProjectGraphStore: CRUD', () => {
 	});
 });
 
-suite('ProjectGraphStore: file persistence', () => {
+suite('AtlasStore: file persistence', () => {
 	let tmpDir: string;
 
 	setup(() => {
@@ -206,22 +206,22 @@ suite('ProjectGraphStore: file persistence', () => {
 	});
 
 	test('save writes a database file that a later open can reload', async () => {
-		const dbPath = path.join(tmpDir, 'project-graph.sqlite');
+		const dbPath = path.join(tmpDir, 'atlas.sqlite');
 
-		const store = await ProjectGraphStore.open({ filePath: dbPath });
+		const store = await AtlasStore.open({ filePath: dbPath });
 		store.upsertNode(makeFileNode('file:1', 'index.ts'));
 		store.save();
 		store.close();
 
 		assert.ok(fs.existsSync(dbPath));
 
-		const reopened = await ProjectGraphStore.open({ filePath: dbPath });
+		const reopened = await AtlasStore.open({ filePath: dbPath });
 		assert.strictEqual(reopened.getNode('file:1')?.name, 'index.ts');
 		reopened.close();
 	});
 
 	test('save throws when no filePath was ever provided', async () => {
-		const store = await ProjectGraphStore.open();
+		const store = await AtlasStore.open();
 		assert.throws(() => store.save());
 		store.close();
 	});

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { analyzeWorkspace } from '../../ui/analyzeWorkspace';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 
 function writeFile(dir: string, name: string, contents: string): string {
 	const filePath = path.join(dir, name);
@@ -42,19 +42,19 @@ suite('analyzeWorkspace', () => {
 		assert.deepStrictEqual(messages, [
 			'Extracting TypeScript/JavaScript...',
 			'Extracting Python...',
-			'Updating Project Graph...'
+			'Updating Atlas graph...'
 		]);
 	});
 
 	test('persists the resulting graph to dbPath when given', async () => {
 		writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
-		const dbPath = path.join(tmpDir, 'project-graph.db');
+		const dbPath = path.join(tmpDir, 'atlas.db');
 
 		const result = await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
 		assert.ok(fs.existsSync(dbPath), 'expected the database file to be written to dbPath');
 
-		const reopened = await ProjectGraphStore.open({ filePath: dbPath });
+		const reopened = await AtlasStore.open({ filePath: dbPath });
 		try {
 			assert.strictEqual(reopened.getGraph().nodes.length, result.nodeCount);
 		} finally {

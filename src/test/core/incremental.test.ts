@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { applyFileGraph, knownProjectFiles, removeFileGraph } from '../../core/incremental';
-import { populateProjectGraph } from '../../core/populate';
-import { ProjectGraphStore } from '../../core/store';
+import { populateAtlas } from '../../core/populate';
+import { AtlasStore } from '../../core/store';
 import { runPythonPipeline } from '../../pipelines/python';
 import { runTsPipeline } from '../../pipelines/ts';
 
@@ -17,13 +17,13 @@ function writeFile(dir: string, name: string, contents: string): string {
 
 suite('incremental: TS/JS single-file updates', () => {
 	let tmpDir: string;
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 	let mathPath: string;
 	let indexPath: string;
 
 	setup(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-incremental-ts-'));
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 
 		mathPath = writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
 		indexPath = writeFile(
@@ -32,7 +32,7 @@ suite('incremental: TS/JS single-file updates', () => {
 			["import { add } from './math';", '', 'export function run(): number {', '  return add(1, 2);', '}'].join('\n')
 		);
 
-		populateProjectGraph(store, [runTsPipeline(tmpDir)]);
+		populateAtlas(store, [runTsPipeline(tmpDir)]);
 	});
 
 	teardown(() => {
@@ -148,18 +148,18 @@ suite('incremental: TS/JS single-file updates', () => {
 
 suite('incremental: Python single-file updates', () => {
 	let tmpDir: string;
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 	let mathPath: string;
 	let mainPath: string;
 
 	setup(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-incremental-py-'));
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 
 		mathPath = writeFile(tmpDir, 'math_utils.py', 'def add(a, b):\n    return a + b\n');
 		mainPath = writeFile(tmpDir, 'main.py', ['from math_utils import add', '', 'def run():', '    return add(1, 2)'].join('\n'));
 
-		populateProjectGraph(store, [await runPythonPipeline(tmpDir)]);
+		populateAtlas(store, [await runPythonPipeline(tmpDir)]);
 	});
 
 	teardown(() => {

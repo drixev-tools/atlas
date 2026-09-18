@@ -6,7 +6,7 @@ import { applySchema } from './schema';
 let sqlJsPromise: Promise<SqlJsStatic> | undefined;
 
 /**
- * sql.js ships as a WASM build so the Project Graph Core has no native
+ * sql.js ships as a WASM build so the Atlas Core has no native
  * addon to rebuild per platform/Electron ABI — it just needs its .wasm
  * binary read off disk once per process, which `getSqlJs` caches.
  */
@@ -25,7 +25,7 @@ export interface OpenDatabaseOptions {
 }
 
 /**
- * Opens the Project Graph SQLite database: loads it from `filePath` if a
+ * Opens the Atlas SQLite database: loads it from `filePath` if a
  * database file already exists there (e.g. from a previous VS Code
  * session), or starts a fresh one otherwise, then ensures the schema is
  * applied either way. sql.js keeps the database entirely in memory, so

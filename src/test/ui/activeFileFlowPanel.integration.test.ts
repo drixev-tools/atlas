@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { analyzeWorkspace } from '../../ui/analyzeWorkspace';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { ActiveFileFlowPanel } from '../../ui/activeFileFlowPanel';
 import { ActiveFileFlowHostToWebviewMessage } from '../../ui/webview/activeFileFlowProtocol';
 
@@ -37,7 +37,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 		this.timeout(20000);
 
 		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-activefileflow-'));
-		const dbPath = path.join(tmpDir, 'project-graph.db');
+		const dbPath = path.join(tmpDir, 'atlas.db');
 		const mathPath = path.join(tmpDir, 'math.ts');
 		const indexPath = path.join(tmpDir, 'index.ts');
 		fs.writeFileSync(mathPath, 'export function add(a: number, b: number): number { return a + b; }\n');
@@ -46,7 +46,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 		try {
 			await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-			const store = await ProjectGraphStore.open({ filePath: dbPath });
+			const store = await AtlasStore.open({ filePath: dbPath });
 			const panel = ActiveFileFlowPanel.createOrShow(extensionUri(), store, mathPath);
 			try {
 				const messages: ActiveFileFlowHostToWebviewMessage[] = [];
@@ -79,7 +79,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 		this.timeout(20000);
 
 		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-activefileflow-chain-'));
-		const dbPath = path.join(tmpDir, 'project-graph.db');
+		const dbPath = path.join(tmpDir, 'atlas.db');
 		const schemaPath = path.join(tmpDir, 'schema.ts');
 		const mailerPath = path.join(tmpDir, 'mailer.ts');
 		const sendRoutePath = path.join(tmpDir, 'send.route.ts');
@@ -92,7 +92,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 		try {
 			await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 
-			const store = await ProjectGraphStore.open({ filePath: dbPath });
+			const store = await AtlasStore.open({ filePath: dbPath });
 			const panel = ActiveFileFlowPanel.createOrShow(extensionUri(), store, mailerPath);
 			try {
 				const messages: ActiveFileFlowHostToWebviewMessage[] = [];

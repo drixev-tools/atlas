@@ -1,4 +1,4 @@
-// Root React component of the Project Graph webview. Owns the graph state
+// Root React component of the Atlas webview. Owns the graph state
 // received over `postMessage` (./protocol) and derives, on every render, the
 // currently visible level's data and layout — all pure, unit-tested modules
 // shared with the extension host side where useful. Rendering itself is

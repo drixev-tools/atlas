@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { GraphEdge, GraphNode } from '../../pipelines/model';
-import { ProjectGraphStore } from '../../core/store';
+import { AtlasStore } from '../../core/store';
 import { detectEntryPoints } from '../../core/entryPoints';
 
 function func(id: string, name: string, exported = true): GraphNode {
@@ -16,10 +16,10 @@ function callEdge(id: string, source: string, target: string): GraphEdge {
 }
 
 suite('detectEntryPoints', () => {
-	let store: ProjectGraphStore;
+	let store: AtlasStore;
 
 	setup(async () => {
-		store = await ProjectGraphStore.open();
+		store = await AtlasStore.open();
 	});
 
 	teardown(() => {

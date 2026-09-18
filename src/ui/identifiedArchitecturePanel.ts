@@ -3,7 +3,7 @@
 // ./sequenceDiagramView's singleton create-or-reveal shape, as its own
 // `WebviewPanel` separate from "Open Architecture" (../graphPanel), loading
 // the same bundled React Flow script (../webview/main.tsx picks the root
-// component via `data-view`). This panel owns no `ProjectGraphStore`: the
+// component via `data-view`). This panel owns no `AtlasStore`: the
 // diagram is precomputed by whichever command opens/updates it
 // (../extension.ts's `runShowIdentifiedArchitectureCommand`), like
 // ./sequenceDiagramView.

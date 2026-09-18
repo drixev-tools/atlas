@@ -5,7 +5,7 @@ import { runTsPipeline } from '../pipelines/ts';
 import { applyFileGraph, knownProjectFiles, removeFileGraph } from './incremental';
 import { UsageMetricsStore } from './metrics';
 import { GraphStatus } from './schema';
-import { ProjectGraphStore } from './store';
+import { AtlasStore } from './store';
 
 const WATCH_GLOB = '**/*.{ts,tsx,js,jsx,py}';
 
@@ -52,11 +52,11 @@ export function languageForFile(filePath: string): WatchedLanguage | undefined {
 	}
 }
 
-export interface ProjectGraphWatcherOptions {
+export interface AtlasWatcherOptions {
 	/** Workspace folder the watched files belong to, used to resolve imports and discover sibling files. */
 	rootDir: string;
-	store: ProjectGraphStore;
-	/** Status to tag incrementally updated nodes/edges with. Defaults to `observed_only`, matching `populateProjectGraph`. */
+	store: AtlasStore;
+	/** Status to tag incrementally updated nodes/edges with. Defaults to `observed_only`, matching `populateAtlas`. */
 	status?: GraphStatus;
 	/**
 	 * Persistent Python interpreter reused across incremental re-parses so
@@ -73,13 +73,13 @@ export interface ProjectGraphWatcherOptions {
 
 /**
  * Watches the TS/JS and Python source files of a workspace folder and keeps
- * the Project Graph Core in sync as they change, without ever re-running a
+ * the Atlas Core in sync as they change, without ever re-running a
  * full workspace scan: each create/change re-extracts just that one file
  * through the pipeline for its language and applies only that file's
  * nodes/edges to the store (`applyFileGraph`); each delete removes just that
  * file's nodes/edges (`removeFileGraph`).
  */
-export class ProjectGraphWatcher implements vscode.Disposable {
+export class AtlasWatcher implements vscode.Disposable {
 	private readonly watcher: vscode.FileSystemWatcher;
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly pythonServer: PythonServer;
@@ -89,7 +89,7 @@ export class ProjectGraphWatcher implements vscode.Disposable {
 	/** Serializes handling of watcher events so overlapping edits to the same file apply in order. */
 	private queue: Promise<void> = Promise.resolve();
 
-	constructor(private readonly options: ProjectGraphWatcherOptions) {
+	constructor(private readonly options: AtlasWatcherOptions) {
 		this.pythonServer = options.pythonServer ?? new PythonServer();
 		this.ownsPythonServer = !options.pythonServer;
 		this.onError = options.onError ?? ((error, filePath) => console.error(`Atlas: failed to update ${filePath}`, error));

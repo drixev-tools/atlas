@@ -16,7 +16,7 @@
 // the chosen function -> whatever it calls.
 import { NodeKind, SourceRange } from '../pipelines/model';
 import { buildActiveFileFlow } from './activeFileFlow';
-import { ProjectGraphStore, StoredEdge, StoredNode } from './store';
+import { AtlasStore, StoredEdge, StoredNode } from './store';
 
 export const DEFAULT_SEQUENCE_MAX_DEPTH = 4;
 export const DEFAULT_SEQUENCE_MAX_STEPS = 12;
@@ -72,12 +72,12 @@ export interface SequenceContextOptions {
 	maxAncestorSteps?: number;
 }
 
-function findContainerNode(store: ProjectGraphStore, nodeId: string): StoredNode | undefined {
+function findContainerNode(store: AtlasStore, nodeId: string): StoredNode | undefined {
 	const edge = store.listEdges({ kind: 'contains', target: nodeId })[0];
 	return edge ? store.getNode(edge.source) : undefined;
 }
 
-function lifelineForNode(store: ProjectGraphStore, node: StoredNode): SequenceLifeline {
+function lifelineForNode(store: AtlasStore, node: StoredNode): SequenceLifeline {
 	const container = findContainerNode(store, node.id);
 	if (container && container.kind === 'class') {
 		const lifeline: SequenceLifeline = { id: container.id, label: container.name, kind: 'class' };
@@ -132,7 +132,7 @@ function callLine(edge: StoredEdge): number | undefined {
  * top-level function invoking one), there is no real starting point in the
  * file's own top-level code to trace from.
  */
-function fileTraceRoots(store: ProjectGraphStore, fileNode: StoredNode): StoredNode[] {
+function fileTraceRoots(store: AtlasStore, fileNode: StoredNode): StoredNode[] {
 	return store
 		.listEdges({ kind: 'contains', source: fileNode.id })
 		.map((edge) => store.getNode(edge.target))
@@ -141,7 +141,7 @@ function fileTraceRoots(store: ProjectGraphStore, fileNode: StoredNode): StoredN
 }
 
 /** Shared participant/lifeline bookkeeping for both `buildSequenceContext` and `buildActiveFileSequenceContext`, so a node already registered by one segment (e.g. the active file, seen in both the ancestor chain and the file-to-function step) reuses the same participant instead of duplicating it. */
-function createParticipantRegistry(store: ProjectGraphStore): {
+function createParticipantRegistry(store: AtlasStore): {
 	participantsById: Map<string, SequenceParticipant>;
 	lifelinesById: Map<string, SequenceLifeline>;
 	registerParticipant: (node: StoredNode) => SequenceParticipant;
@@ -173,9 +173,9 @@ function createParticipantRegistry(store: ProjectGraphStore): {
  * Builds `nodeId`'s call chain for the "Show Sequence Diagram" action: only
  * meaningful for `function`, `method` and `file` nodes, matching that
  * action's own scope (../ui/sequenceDiagram); returns `undefined` for any
- * other kind or an id no longer in the Project Graph.
+ * other kind or an id no longer in the Atlas graph.
  */
-export function buildSequenceContext(store: ProjectGraphStore, nodeId: string, options: SequenceContextOptions = {}): SequenceContext | undefined {
+export function buildSequenceContext(store: AtlasStore, nodeId: string, options: SequenceContextOptions = {}): SequenceContext | undefined {
 	const target = store.getNode(nodeId);
 	if (!target || (target.kind !== 'function' && target.kind !== 'method' && target.kind !== 'file')) {
 		return undefined;
@@ -276,7 +276,7 @@ export interface SequenceFunctionCandidate {
  * Diagram" Quick Pick offers so the user can choose which one to trace,
  * since a file usually has more than one.
  */
-export function listSequenceFunctionCandidates(store: ProjectGraphStore, fileId: string): SequenceFunctionCandidate[] {
+export function listSequenceFunctionCandidates(store: AtlasStore, fileId: string): SequenceFunctionCandidate[] {
 	const candidates: SequenceFunctionCandidate[] = [];
 
 	const visit = (containerId: string, containerName: string | undefined): void => {
@@ -311,10 +311,10 @@ export function listSequenceFunctionCandidates(store: ProjectGraphStore, fileId:
  * oldest ancestor first), a step from the active file to `functionId` itself,
  * then `functionId`'s own outgoing call chain (`buildSequenceContext`,
  * unchanged). Returns `undefined` when `activeFileId` isn't a file node or
- * `functionId` isn't a function/method node in the Project Graph.
+ * `functionId` isn't a function/method node in the Atlas graph.
  */
 export function buildActiveFileSequenceContext(
-	store: ProjectGraphStore,
+	store: AtlasStore,
 	activeFileId: string,
 	functionId: string,
 	options: SequenceContextOptions = {}

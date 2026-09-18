@@ -26,7 +26,7 @@ suite('loadSequenceFunctionCandidates', () => {
 
 	setup(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sequence-'));
-		dbPath = path.join(tmpDir, 'project-graph.db');
+		dbPath = path.join(tmpDir, 'atlas.db');
 	});
 
 	teardown(() => {
@@ -45,7 +45,7 @@ suite('loadSequenceFunctionCandidates', () => {
 		);
 	});
 
-	test('returns undefined for a file outside the Project Graph', async () => {
+	test('returns undefined for a file outside the Atlas graph', async () => {
 		await analyzeWorkspace({ rootDir: tmpDir, dbPath });
 		const resolved = await loadSequenceFunctionCandidates(dbPath, path.join(tmpDir, 'missing.ts'));
 		assert.strictEqual(resolved, undefined);
@@ -58,7 +58,7 @@ suite('loadActiveFileSequenceContext', () => {
 
 	setup(async () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sequence-'));
-		dbPath = path.join(tmpDir, 'project-graph.db');
+		dbPath = path.join(tmpDir, 'atlas.db');
 	});
 
 	teardown(() => {

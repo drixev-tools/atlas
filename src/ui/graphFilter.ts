@@ -1,4 +1,4 @@
-// Pure transform collapsing the Project Graph Core's full node/edge set down
+// Pure transform collapsing the Atlas Core's full node/edge set down
 // to the File -> Class -> Method/Function hierarchy a workflow view actually
 // needs: any consumer that only cares about that hierarchy calls
 // `filterGraphForWorkflow` instead of filtering `StoredGraph` themselves.
