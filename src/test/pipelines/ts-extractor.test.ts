@@ -15,7 +15,7 @@ suite('TS pipeline: extractor', () => {
 	let tmpDir: string;
 
 	setup(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-extractor-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-extractor-'));
 	});
 
 	teardown(() => {

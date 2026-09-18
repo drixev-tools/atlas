@@ -16,7 +16,7 @@ suite('analyzeWorkspace', () => {
 	let tmpDir: string;
 
 	setup(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-analyze-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-analyze-'));
 	});
 
 	teardown(() => {

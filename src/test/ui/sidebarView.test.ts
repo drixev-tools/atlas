@@ -35,7 +35,7 @@ suite('Sidebar Panel', () => {
 		let dbPath: string;
 
 		setup(() => {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sidebar-'));
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-sidebar-'));
 			dbPath = path.join(tmpDir, 'atlas.db');
 		});
 
@@ -118,7 +118,7 @@ suite('Sidebar Panel', () => {
 		let tmpDir: string;
 
 		setup(() => {
-			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sidebar-select-'));
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-sidebar-select-'));
 		});
 
 		teardown(async () => {

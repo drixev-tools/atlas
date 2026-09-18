@@ -16,7 +16,7 @@ suite('TS pipeline: end to end', () => {
 	let tmpDir: string;
 
 	setup(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-pipeline-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-pipeline-'));
 	});
 
 	teardown(() => {

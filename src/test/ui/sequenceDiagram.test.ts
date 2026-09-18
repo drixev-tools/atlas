@@ -25,7 +25,7 @@ suite('loadSequenceFunctionCandidates', () => {
 	let dbPath: string;
 
 	setup(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sequence-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-sequence-'));
 		dbPath = path.join(tmpDir, 'atlas.db');
 	});
 
@@ -57,7 +57,7 @@ suite('loadActiveFileSequenceContext', () => {
 	let dbPath: string;
 
 	setup(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-sequence-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-sequence-'));
 		dbPath = path.join(tmpDir, 'atlas.db');
 	});
 

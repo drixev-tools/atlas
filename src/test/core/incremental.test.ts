@@ -22,7 +22,7 @@ suite('incremental: TS/JS single-file updates', () => {
 	let indexPath: string;
 
 	setup(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-incremental-ts-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-incremental-ts-'));
 		store = await AtlasStore.open();
 
 		mathPath = writeFile(tmpDir, 'math.ts', 'export function add(a: number, b: number): number { return a + b; }\n');
@@ -153,7 +153,7 @@ suite('incremental: Python single-file updates', () => {
 	let mainPath: string;
 
 	setup(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-incremental-py-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-incremental-py-'));
 		store = await AtlasStore.open();
 
 		mathPath = writeFile(tmpDir, 'math_utils.py', 'def add(a, b):\n    return a + b\n');

@@ -20,8 +20,8 @@ suite('populateAtlas: both pipelines', () => {
 	let store: AtlasStore;
 
 	setup(async () => {
-		tsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-populate-ts-'));
-		pyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-populate-py-'));
+		tsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-populate-ts-'));
+		pyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-populate-py-'));
 		store = await AtlasStore.open();
 	});
 

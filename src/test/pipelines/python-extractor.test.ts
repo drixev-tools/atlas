@@ -16,7 +16,7 @@ suite('Python pipeline: extractor', () => {
 	let server: PythonServer;
 
 	setup(async () => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-py-extractor-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-py-extractor-'));
 		server = new PythonServer();
 		await server.start();
 	});

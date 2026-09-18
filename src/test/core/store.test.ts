@@ -198,7 +198,7 @@ suite('AtlasStore: file persistence', () => {
 	let tmpDir: string;
 
 	setup(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-store-'));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-store-'));
 	});
 
 	teardown(() => {

@@ -36,7 +36,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 	test('posts a flow with real ancestors/descendants once the actual webview reports ready', async function () {
 		this.timeout(20000);
 
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-activefileflow-'));
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-activefileflow-'));
 		const dbPath = path.join(tmpDir, 'atlas.db');
 		const mathPath = path.join(tmpDir, 'math.ts');
 		const indexPath = path.join(tmpDir, 'index.ts');
@@ -78,7 +78,7 @@ suite('ActiveFileFlowPanel (real webview round trip)', () => {
 	test('traces a multi-hop ancestor chain (grandparent -> parent -> active file) plus the active file\'s own child import', async function () {
 		this.timeout(20000);
 
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-graph-activefileflow-chain-'));
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-activefileflow-chain-'));
 		const dbPath = path.join(tmpDir, 'atlas.db');
 		const schemaPath = path.join(tmpDir, 'schema.ts');
 		const mailerPath = path.join(tmpDir, 'mailer.ts');
