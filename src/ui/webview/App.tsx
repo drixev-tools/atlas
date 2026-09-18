@@ -50,9 +50,11 @@ import {
 import { postToHost } from './vscodeApi';
 import { WorkflowNode, WorkflowFlowNode } from './WorkflowNode';
 import { DiagramCardData, DiagramCardFlowNode, DiagramCardNode, DiagramGroupData, DiagramGroupFlowNode, DiagramGroupNode } from './DiagramCardNode';
-import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
+import { connectedNodeIds, dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
 import { ExportButton } from './ExportButton';
+import { DiagramToolbar } from './DiagramToolbar';
 import { captureViewExport } from './exportCapture';
+import { useDraggableLayout } from './useDraggableLayout';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 56;
@@ -304,8 +306,10 @@ export function App(): ReactElement {
 				selectedId={selectedCardId}
 				expandedNodeIds={EMPTY_ARCH_NODE_IDS}
 				onNodeClick={handleFlatFileNodeClick}
+				onPaneClick={() => setSelectedCardId(undefined)}
 				breadcrumb={<Breadcrumb viewMode={viewMode} onSelectLayers={handleSelectLayers} onSelectFiles={handleSelectFiles} />}
-				exportToolbar={exportToolbar}
+				onExportClick={handleExportClick}
+				isExporting={isExporting}
 				containerRef={diagramContainerRef}
 			/>
 		);
@@ -320,8 +324,10 @@ export function App(): ReactElement {
 			selectedId={selectedCardId}
 			expandedNodeIds={expandedArchNodeIds}
 			onNodeClick={handleArchNodeClick}
+			onPaneClick={() => setSelectedCardId(undefined)}
 			breadcrumb={<Breadcrumb viewMode={viewMode} onSelectLayers={handleSelectLayers} onSelectFiles={handleSelectFiles} />}
-			exportToolbar={exportToolbar}
+			onExportClick={handleExportClick}
+			isExporting={isExporting}
 			containerRef={diagramContainerRef}
 		/>
 	);
@@ -373,12 +379,15 @@ interface DiagramLevelViewProps {
 	 */
 	expandedNodeIds: ReadonlySet<string>;
 	onNodeClick: NodeMouseHandler;
+	/** Clicking the canvas background clears the selection so the whole diagram returns to full opacity — the counterpart to `onNodeClick` dimming everything but the clicked node's direct relationships. */
+	onPaneClick: () => void;
 	breadcrumb: ReactElement;
-	exportToolbar: ReactElement;
+	onExportClick: () => void;
+	isExporting: boolean;
 	containerRef: RefObject<HTMLDivElement>;
 }
 
-function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessage, selectedId, expandedNodeIds, onNodeClick, breadcrumb, exportToolbar, containerRef }: DiagramLevelViewProps): ReactElement {
+function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessage, selectedId, expandedNodeIds, onNodeClick, onPaneClick, breadcrumb, onExportClick, isExporting, containerRef }: DiagramLevelViewProps): ReactElement {
 	const visibleModel = useMemo(() => visibleDiagramModel(model, expandedNodeIds), [model, expandedNodeIds]);
 
 	const orderedNodes = useMemo(() => topologicallyOrderNodes(visibleModel), [visibleModel]);
@@ -413,6 +422,8 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 
 	const visibleNodeIds = useMemo(() => new Set(orderedNodes.map((node) => node.id)), [orderedNodes]);
 
+	const highlighted = useMemo(() => connectedNodeIds(visibleModel.edges, selectedId), [visibleModel, selectedId]);
+
 	const flowNodes: (DiagramCardFlowNode | DiagramGroupFlowNode)[] = useMemo(
 		() =>
 			orderedNodes.map((node) => {
@@ -426,6 +437,7 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 					extent: node.parentId ? ('parent' as const) : undefined
 				};
 				const isExpanded = expandedNodeIds.has(node.id);
+				const isDimmed = highlighted !== undefined && !highlighted.has(node.id);
 				// A folder group's hidden children are its own member files, not yet fetched/merged (App's mergedArchitectureModel); a file's are its standalone import targets (../diagramFileExpansion).
 				const hasHiddenChildren = node.kind === 'group' ? Boolean(node.metrics) && !isExpanded : hasHiddenStandaloneImports(model, node.id, visibleNodeIds);
 				if (isGroupContainer) {
@@ -435,7 +447,8 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 						hasEntryPoint: entryPointIds.has(node.id),
 						tintIndex: siblingIndexById.get(node.id) ?? 0,
 						hasHiddenChildren,
-						isExpanded
+						isExpanded,
+						isDimmed
 					};
 					return { ...base, type: 'diagramGroup', data };
 				}
@@ -446,48 +459,54 @@ function DiagramLevelView({ model, entryPointIds, labelsByGroupId, loadingMessag
 					metrics: node.metrics,
 					hasEntryPoint: entryPointIds.has(node.id),
 					isSelected: node.id === selectedId,
+					isDimmed,
 					hasHiddenChildren,
 					isExpanded,
 					showFanMetrics: false
 				};
 				return { ...base, type: 'diagramCard', data };
 			}),
-		[orderedNodes, boxes, hasChildrenById, siblingIndexById, labelsByGroupId, entryPointIds, selectedId, model, expandedNodeIds, visibleNodeIds]
+		[orderedNodes, boxes, hasChildrenById, siblingIndexById, labelsByGroupId, entryPointIds, selectedId, highlighted, model, expandedNodeIds, visibleNodeIds]
 	);
+
+	const { nodes: draggableNodes, onNodesChange, resetLayout } = useDraggableLayout(flowNodes);
 
 	const flowEdges: Edge[] = useMemo(
 		() =>
 			visibleModel.edges.map((edge) => {
 				const dominant = dominantEdgeKind(edge.kinds);
 				const totalCount = edge.kinds.reduce((sum, entry) => sum + entry.count, 0);
+				const isDimmed = highlighted !== undefined && !(edge.source === selectedId || edge.target === selectedId);
 				return {
 					id: edge.id,
 					source: edge.source,
 					target: edge.target,
 					type: 'default',
-					className: DIAGRAM_EDGE_VISUALS[dominant].className,
+					className: `${DIAGRAM_EDGE_VISUALS[dominant].className} ${isDimmed ? 'is-dimmed' : ''}`,
 					label: String(totalCount),
 					labelBgStyle: { fill: 'var(--vscode-editorWidget-background)' },
 					labelStyle: { fontSize: 10, fill: 'var(--vscode-editorWidget-foreground)' },
 					markerEnd: { type: MarkerType.ArrowClosed }
 				};
 			}),
-		[visibleModel]
+		[visibleModel, highlighted, selectedId]
 	);
 
 	return (
 		<div className="app-root">
 			{breadcrumb}
-			{exportToolbar}
 			{loadingMessage && <EmptyState message={loadingMessage} />}
 			{!loadingMessage && flowNodes.length === 0 && <EmptyState message='No nodes to display yet. Run "Project Graph: Analyze Workspace" first.' />}
 			{!loadingMessage && flowNodes.length > 0 && (
-				<div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+				<div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+					<DiagramToolbar onExport={onExportClick} exportDisabled={isExporting} onResetLayout={resetLayout} />
 					<ReactFlow
-						nodes={flowNodes}
+						nodes={draggableNodes}
 						edges={flowEdges}
 						nodeTypes={DIAGRAM_NODE_TYPES}
+						onNodesChange={onNodesChange}
 						onNodeClick={onNodeClick}
+						onPaneClick={onPaneClick}
 						fitView
 						nodesConnectable={false}
 						proOptions={{ hideAttribution: true }}

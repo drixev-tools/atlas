@@ -14,9 +14,11 @@ import { Background, BackgroundVariant, Controls, MarkerType, ReactFlow, type Ed
 import { DiagramModel } from '../../core/diagramModel';
 import { computeDiagramLayout } from '../diagramLayout';
 import { DiagramCardData, DiagramCardFlowNode, DiagramCardNode, DiagramGroupData, DiagramGroupFlowNode, DiagramGroupNode } from './DiagramCardNode';
-import { dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
+import { connectedNodeIds, dominantEdgeKind, DIAGRAM_EDGE_VISUALS, estimateDiagramCardHeight } from './visualSystem';
 import { ExportButton } from './ExportButton';
+import { DiagramToolbar } from './DiagramToolbar';
 import { captureViewExport } from './exportCapture';
+import { useDraggableLayout } from './useDraggableLayout';
 import { IdentifiedArchitectureExportFormat, IdentifiedArchitectureHostToWebviewMessage, IdentifiedArchitecturePayload } from './identifiedArchitectureProtocol';
 import { postToHost } from './vscodeApi';
 
@@ -78,6 +80,7 @@ export function IdentifiedArchitectureApp(): ReactElement {
 
 	const handleExportClick = useCallback(() => postToHost({ type: 'identifiedArchitecture:exportRequest' }), []);
 	const handleNodeClick: NodeMouseHandler = useCallback((_event, node) => setSelectedId(node.id), []);
+	const handlePaneClick = useCallback(() => setSelectedId(undefined), []);
 
 	const model = payload?.model ?? EMPTY_MODEL;
 
@@ -106,6 +109,8 @@ export function IdentifiedArchitectureApp(): ReactElement {
 	);
 	const siblingIndexById = useMemo(() => computeSiblingIndex(orderedNodes), [orderedNodes]);
 
+	const highlighted = useMemo(() => connectedNodeIds(model.edges, selectedId), [model, selectedId]);
+
 	const flowNodes: (DiagramCardFlowNode | DiagramGroupFlowNode)[] = useMemo(
 		() =>
 			orderedNodes.map((node) => {
@@ -118,12 +123,14 @@ export function IdentifiedArchitectureApp(): ReactElement {
 					parentId: node.parentId,
 					extent: node.parentId ? ('parent' as const) : undefined
 				};
+				const isDimmed = highlighted !== undefined && !highlighted.has(node.id);
 				if (isGroupContainer) {
 					const data: DiagramGroupData = {
 						label: node.label,
 						purpose: payload?.roleDescriptionsByGroupId[node.id],
 						hasEntryPoint: false,
-						tintIndex: siblingIndexById.get(node.id) ?? 0
+						tintIndex: siblingIndexById.get(node.id) ?? 0,
+						isDimmed
 					};
 					return { ...base, type: 'diagramGroup', data };
 				}
@@ -132,36 +139,40 @@ export function IdentifiedArchitectureApp(): ReactElement {
 					label: node.label,
 					metrics: node.metrics,
 					hasEntryPoint: false,
-					isSelected: node.id === selectedId
+					isSelected: node.id === selectedId,
+					isDimmed
 				};
 				return { ...base, type: 'diagramCard', data };
 			}),
-		[orderedNodes, boxes, hasChildrenById, siblingIndexById, payload, selectedId]
+		[orderedNodes, boxes, hasChildrenById, siblingIndexById, payload, selectedId, highlighted]
 	);
+
+	const { nodes: draggableNodes, onNodesChange, resetLayout } = useDraggableLayout(flowNodes);
 
 	const flowEdges: Edge[] = useMemo(
 		() =>
 			model.edges.map((edge) => {
 				const dominant = dominantEdgeKind(edge.kinds);
 				const totalCount = edge.kinds.reduce((sum, entry) => sum + entry.count, 0);
+				const isDimmed = highlighted !== undefined && !(edge.source === selectedId || edge.target === selectedId);
 				return {
 					id: edge.id,
 					source: edge.source,
 					target: edge.target,
 					type: 'default',
-					className: DIAGRAM_EDGE_VISUALS[dominant].className,
+					className: `${DIAGRAM_EDGE_VISUALS[dominant].className} ${isDimmed ? 'is-dimmed' : ''}`,
 					label: String(totalCount),
 					labelBgStyle: { fill: 'var(--vscode-editorWidget-background)' },
-					labelStyle: { fontSize: 10 },
+					labelStyle: { fontSize: 10, fill: 'var(--vscode-editorWidget-foreground)' },
 					markerEnd: { type: MarkerType.ArrowClosed }
 				};
 			}),
-		[model]
+		[model, highlighted, selectedId]
 	);
 
 	return (
 		<div className="app-root">
-			<ExportButton onClick={handleExportClick} disabled={isExporting || status !== 'ready'} />
+			{status !== 'ready' && <ExportButton onClick={handleExportClick} disabled />}
 			{status === 'needsApiKey' && <NeedsApiKeyState />}
 			{status === 'loading' && <EmptyState message="Identifying the project's architecture…" />}
 			{status === 'empty' && (
@@ -170,11 +181,14 @@ export function IdentifiedArchitectureApp(): ReactElement {
 			{status === 'ready' && payload && (
 				<div ref={diagramContainerRef} className="ag-identified-architecture-canvas" style={{ width: '100%', height: '100%' }}>
 					<AiInterpretationBadge patternName={payload.patternName} patternDescription={payload.patternDescription} />
+					<DiagramToolbar onExport={handleExportClick} exportDisabled={isExporting} onResetLayout={resetLayout} />
 					<ReactFlow
-						nodes={flowNodes}
+						nodes={draggableNodes}
 						edges={flowEdges}
 						nodeTypes={DIAGRAM_NODE_TYPES}
+						onNodesChange={onNodesChange}
 						onNodeClick={handleNodeClick}
+						onPaneClick={handlePaneClick}
 						fitView
 						nodesConnectable={false}
 						proOptions={{ hideAttribution: true }}

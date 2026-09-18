@@ -63,6 +63,29 @@ export function layerTintClassName(indexAmongSiblings: number): string {
 	return `ag-layer-tint-${((indexAmongSiblings % LAYER_TINT_COUNT) + LAYER_TINT_COUNT) % LAYER_TINT_COUNT}`;
 }
 
+/**
+ * The selected node itself plus every node directly joined to it by an edge
+ * (either endpoint) — what a diagram view keeps at full opacity while
+ * dimming the rest, so a selection reads as "this node's actual
+ * relationships" rather than just one highlighted box among many unrelated
+ * ones. `undefined` (nothing selected) means every node/edge stays at full
+ * opacity — the caller's cue not to dim anything.
+ */
+export function connectedNodeIds(edges: readonly { source: string; target: string }[], selectedId: string | undefined): ReadonlySet<string> | undefined {
+	if (!selectedId) {
+		return undefined;
+	}
+	const ids = new Set<string>([selectedId]);
+	for (const edge of edges) {
+		if (edge.source === selectedId) {
+			ids.add(edge.target);
+		} else if (edge.target === selectedId) {
+			ids.add(edge.source);
+		}
+	}
+	return ids;
+}
+
 /** How many external-dependency chips a card renders directly before folding the rest into a single "+N" chip — enough to be useful without a handful of npm packages pushing out a card with real fan-in/fan-out to measure. */
 const EXTERNAL_DEPENDENCY_CHIP_LIMIT = 6;
 

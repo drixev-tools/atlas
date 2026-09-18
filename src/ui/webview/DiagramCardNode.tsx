@@ -19,6 +19,8 @@ export interface DiagramCardData extends Record<string, unknown> {
 	metrics?: DiagramMetrics;
 	hasEntryPoint: boolean;
 	isSelected: boolean;
+	/** True once some other node is selected and this one is neither that node nor directly connected to it by an edge — the rest of the diagram fades out to secondary opacity so the selected node's actual relationships stand out. */
+	isDimmed?: boolean;
 	/** Whether this card imports a standalone file (../diagramFileExpansion) not currently on canvas — the files view's cue that clicking this card expands it instead of opening the Active File Flow view. */
 	hasHiddenChildren?: boolean;
 	isExpanded?: boolean;
@@ -62,7 +64,10 @@ export function DiagramCardNode(props: NodeProps<DiagramCardFlowNode>): ReactEle
 	const visual = DIAGRAM_KIND_VISUALS[data.kind];
 
 	return (
-		<div className={`ag-card ${visual.accentClassName} ${data.isSelected ? 'is-selected' : ''}`} title={data.purpose || data.label}>
+		<div
+			className={`ag-card ${visual.accentClassName} ${data.isSelected ? 'is-selected' : ''} ${data.isDimmed ? 'is-dimmed' : ''}`}
+			title={data.purpose || data.label}
+		>
 			<Handle type="target" position={Position.Left} />
 			<div className="ag-card-header">
 				<span className="ag-card-icon" aria-hidden="true">
@@ -91,6 +96,8 @@ export interface DiagramGroupData extends Record<string, unknown> {
 	/** Whether this folder owns member files (../diagramFileExpansion's containment-based hiding) not yet merged onto the canvas — the layers view's cue that clicking this box expands it. */
 	hasHiddenChildren?: boolean;
 	isExpanded?: boolean;
+	/** See `DiagramCardData.isDimmed`. */
+	isDimmed?: boolean;
 }
 
 export type DiagramGroupFlowNode = Node<DiagramGroupData, 'diagramGroup'>;
@@ -99,7 +106,10 @@ export function DiagramGroupNode(props: NodeProps<DiagramGroupFlowNode>): ReactE
 	const { data } = props;
 
 	return (
-		<div className={`ag-group-node ${layerTintClassName(data.tintIndex)}`} title={data.purpose || data.label}>
+		<div
+			className={`ag-group-node ${layerTintClassName(data.tintIndex)} ${data.isDimmed ? 'is-dimmed' : ''}`}
+			title={data.purpose || data.label}
+		>
 			<Handle type="target" position={Position.Left} />
 			<div className="ag-group-node-header">
 				<span>{data.label}</span>
